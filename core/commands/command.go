@@ -1,0 +1,161 @@
+package commands
+
+import (
+	"fmt"
+	"log/slog"
+	"slices"
+	"strings"
+
+	m "github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/internal/bot"
+)
+
+type Callback *func(message *m.Message)
+
+type Command struct {
+	Name        string
+	Aliases     *[]string
+	Category    string
+	Description string
+	Examples    *[]string
+	Callable    Callback
+}
+
+type CommandList []*Command
+
+var loadedCommands *CommandList = &CommandList{}
+
+func NewCommand(name, desc, category string, aliases, examples *[]string, callback Callback) *Command {
+	command := Command{
+		Name:        name,
+		Aliases:     aliases,
+		Category:    category,
+		Description: desc,
+		Examples:    examples,
+		Callable:    callback,
+	}
+
+	*loadedCommands = append(*loadedCommands, &command)
+	return &command
+}
+
+func GetLoadedCommands() *CommandList {
+	return loadedCommands
+}
+
+func GetCategories() *[]string {
+	categories := []string{}
+	for _, command := range *loadedCommands {
+		if !slices.Contains(categories, command.Category) {
+			categories = append(categories, command.Category)
+		}
+	}
+	return &categories
+}
+
+func GetCommandsFromCategory(category string) *CommandList {
+	var commands CommandList
+	for _, command := range *loadedCommands {
+		if command.Category == category {
+			commands = append(commands, command)
+		}
+	}
+	return &commands
+}
+
+func FindCommand(nameOrAlias string) (*Command, error) {
+	for _, command := range *loadedCommands {
+		if command.Name == nameOrAlias || slices.Contains(*command.Aliases, nameOrAlias) {
+			return command, nil
+		}
+	}
+	return nil, fmt.Errorf("no command found")
+}
+
+func formatMessage(text, term, prefix string) string {
+	return strings.ReplaceAll(text, term, prefix)
+}
+
+func formatCommandHelp(command *Command, prefix string, commandOrCategory string) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("Comando: %s\n\n", commandOrCategory))
+	sb.WriteString(fmt.Sprintf("Descrição: \n\"%s\"", command.Description))
+
+	if command.Aliases != nil && len(*command.Aliases) > 0 {
+		sb.WriteString("\n\nApelidos: \n- ")
+		sb.WriteString(strings.Join(*command.Aliases, "\n- "))
+	}
+
+	if command.Examples != nil && len(*command.Examples) > 0 {
+		joinedExamples := strings.Join(*command.Examples, "\n- ")
+		formattedExamples := formatMessage(formatMessage(joinedExamples, "${prefix}", prefix), "${alias}", commandOrCategory)
+		sb.WriteString("\n\nExemplos: \n- ")
+		sb.WriteString(formattedExamples)
+	}
+
+	return sb.String()
+}
+
+func dynamicMenu(category string, bot *bot.Bot) string {
+	if category == "" {
+		return fmt.Sprintf("< %s > \n\n Categorias de comandos disponíveis: \n\n- %s",
+			*bot.Name,
+			strings.Join(*GetCategories(), "\n- "),
+		)
+	}
+
+	commands := GetCommandsFromCategory(category)
+	if commands == nil {
+		return fmt.Sprintf("Categoria %s não encontrada!", category)
+	}
+
+	commandNames := []string{}
+
+	for _, command := range *commands {
+		commandNames = append(commandNames, command.Name)
+	}
+
+	return fmt.Sprintf("< %s > \n\n Comandos da categoria: \n\n- %s",
+		*bot.Name,
+		strings.Join(commandNames, "\n- "),
+	)
+}
+
+func RegisterHelpMenu() {
+	slog.Info("Resgistering meta-command help")
+	help := func(msg *m.Message) {
+		args := []string{}
+		if msg.Args != nil {
+			args = *msg.Args
+		}
+		commandOrCategory := strings.Join(args, " ")
+		command, err := FindCommand(commandOrCategory)
+		if err == nil {
+			fmt.Println("Command called help found")
+			text := formatCommandHelp(command, "/", commandOrCategory)
+			msg.Reply(text)
+		} else {
+			fmt.Println("Command not found, building dynamic menu")
+			menu := dynamicMenu(commandOrCategory, msg.Bot)
+			msg.Reply(menu)
+		}
+	}
+
+	NewCommand("help",
+		"Mostra o menu de ajuda ou descrição de um comando",
+		"misc",
+		&[]string{"ajuda"},
+		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
+		&help,
+	)
+}
+
+func RunCommand(msg *m.Message) {
+	cmd, err := FindCommand(*msg.Command)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	(*cmd.Callable)(msg)
+}

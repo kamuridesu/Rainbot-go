@@ -1,0 +1,6 @@
+*.db
+*.o
+*.dll
+*.so
+*.sqlite
+
