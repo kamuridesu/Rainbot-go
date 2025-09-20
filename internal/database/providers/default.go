@@ -12,11 +12,12 @@ import (
 type Database struct {
 	Driver string
 	DB     *sql.DB
+	closed bool
 }
 
 func (d *Database) GetQuery(query string) string {
 	switch d.Driver {
-	case "sqlite":
+	case "sqlite3":
 		return query
 	case "postgres":
 		oQuery := ""
@@ -36,7 +37,7 @@ func (d *Database) GetQuery(query string) string {
 	}
 }
 
-func InitDB(driver string, parameters string) (*Database, error) {
+func InitDB(driver, parameters string) (*Database, error) {
 	db, err := sql.Open(driver, parameters)
 	if err != nil {
 		return nil, err
@@ -47,5 +48,13 @@ func InitDB(driver string, parameters string) (*Database, error) {
 	}
 
 	slog.Info("Database successfuly connected")
-	return &Database{Driver: driver, DB: db}, nil
+	return &Database{Driver: driver, DB: db, closed: false}, nil
+}
+
+func (db *Database) Close() error {
+	if !db.closed {
+		db.closed = true
+		return db.DB.Close()
+	}
+	return nil
 }

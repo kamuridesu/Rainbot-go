@@ -8,4 +8,9 @@ type Chat struct {
 	CustomProfanityWords   string `json:"customProfanityWords"`
 	ProfanityFilterEnabled int    `json:"profanityFilterEnabled"`
 	WarnBanThreshold       int    `json:"warnBanThreshold"`
+	AllowAdults            int    `json:"allowAdults"`
+	AllowGames             int    `json:"allowGames"`
+	AllowFun               int    `json:"allowFun"`
+	WelcomeMessage         string `json:"welcomeMessage"`
+	CountMessages          int    `json:"countMessages"`
 }

@@ -24,3 +24,7 @@ func (s *FilterService) NewFilter(filter *models.Filter) error {
 func (s *FilterService) Delete(chatJid, pattern string) error {
 	return s.repo.Delete(chatJid, pattern)
 }
+
+func (s *FilterService) Close() error {
+	return s.repo.Close()
+}

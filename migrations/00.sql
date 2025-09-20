@@ -5,7 +5,12 @@ CREATE TABLE IF NOT EXISTS chat (
     adminOnly INTEGER DEFAULT 0,
     profanityFilterEnabled INTEGER DEFAULT 0,
     customProfanityWords TEXT DEFAULT '',
-    warnBanThreshold INTEGER DEFAULT 4
+    warnBanThreshold INTEGER DEFAULT 4,
+    allowAdults INTEGER DEFAULT 0,
+    allowGames INTEGER DEFAULT 1,
+    allowFun INTEGER DEFAULT 1,
+    welcomeMessage TEXT DEFAULT '',
+    countMessages INTEGER DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS member (

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/kamuridesu/rainbot-go/internal/database"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
@@ -15,8 +16,8 @@ import (
 
 type Bot struct {
 	Name   *string
-	Prefix *string
 	Client *whatsmeow.Client
+	DB     *database.DatabaseSingleton
 }
 
 type Handler interface {
@@ -24,7 +25,7 @@ type Handler interface {
 	AttachBot(*Bot)
 }
 
-func New(ctx context.Context, name, prefix, sqlDialact, dbAddress string, handler Handler) (*Bot, error) {
+func New(ctx context.Context, name, sqlDialact, dbAddress string, handler Handler, singleton *database.DatabaseSingleton) (*Bot, error) {
 
 	dblog := waLog.Stdout("Database", "INFO", true)
 	container, err := sqlstore.New(ctx, sqlDialact, dbAddress, dblog)
@@ -63,8 +64,8 @@ func New(ctx context.Context, name, prefix, sqlDialact, dbAddress string, handle
 	}
 	bot := Bot{
 		Name:   &name,
-		Prefix: &prefix,
 		Client: client,
+		DB:     singleton,
 	}
 	client.AddEventHandler(handler.Handle)
 	handler.AttachBot(&bot)

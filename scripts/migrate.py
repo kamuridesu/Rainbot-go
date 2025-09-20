@@ -27,10 +27,10 @@ def migrate_sqlite(filename: str, files: list[Path]):
 def main():
     print("[Info] Starting migration...", flush=True)
     files = autodiscover_migrations()
-    db = os.getenv("DB_TYPE", "sqlite")
+    db = os.getenv("DB_DRIVER", "sqlite3")
     params = os.getenv("DB_PARAMS", "test.db")
     match db:
-        case "sqlite":
+        case "sqlite3":
             migrate_sqlite(params, files)
     print("[Info] Done", flush=True)
 

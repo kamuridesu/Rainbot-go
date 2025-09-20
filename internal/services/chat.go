@@ -46,3 +46,7 @@ func (s *ChatService) UpdateChat(chat *models.Chat) error {
 	}
 	return s.repo.Update(chat)
 }
+
+func (s *ChatService) Close() error {
+	return s.repo.Close()
+}

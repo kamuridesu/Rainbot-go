@@ -11,6 +11,7 @@ type MemberRepository interface {
 	FindByChatAndId(chatJid, memberJid string) (*models.Member, error)
 	Create(chatJid, memberJid string) error
 	Update(member *models.Member) error
+	Close() error
 }
 
 type memberRepository struct {
@@ -19,6 +20,10 @@ type memberRepository struct {
 
 func NewMemberRepository(db *providers.Database) MemberRepository {
 	return &memberRepository{db: db}
+}
+
+func (r *memberRepository) Close() error {
+	return r.db.Close()
 }
 
 func (r *memberRepository) FindByChatAndId(chatJid, memberJid string) (*models.Member, error) {

@@ -10,7 +10,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/bot"
 )
 
-type Callback *func(message *m.Message)
+type Callback func(message *m.Message)
 
 type Command struct {
 	Name        string
@@ -19,13 +19,20 @@ type Command struct {
 	Description string
 	Examples    *[]string
 	Callable    Callback
+	Guards      []func(message *m.Message) error
 }
 
 type CommandList []*Command
 
 var loadedCommands *CommandList = &CommandList{}
 
-func NewCommand(name, desc, category string, aliases, examples *[]string, callback Callback) *Command {
+func NewCommand(name, desc, category string, aliases, examples *[]string, callback Callback, guards ...func(message *m.Message) error) *Command {
+	if aliases == nil {
+		aliases = &[]string{}
+	}
+	if examples == nil {
+		examples = &[]string{}
+	}
 	command := Command{
 		Name:        name,
 		Aliases:     aliases,
@@ -33,6 +40,7 @@ func NewCommand(name, desc, category string, aliases, examples *[]string, callba
 		Description: desc,
 		Examples:    examples,
 		Callable:    callback,
+		Guards:      guards,
 	}
 
 	*loadedCommands = append(*loadedCommands, &command)
@@ -80,7 +88,7 @@ func formatCommandHelp(command *Command, prefix string, commandOrCategory string
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("Comando: %s\n\n", commandOrCategory))
-	sb.WriteString(fmt.Sprintf("Descrição: \n\"%s\"", command.Description))
+	sb.WriteString(fmt.Sprintf("Descrição: \n%s", command.Description))
 
 	if command.Aliases != nil && len(*command.Aliases) > 0 {
 		sb.WriteString("\n\nApelidos: \n- ")
@@ -132,11 +140,9 @@ func RegisterHelpMenu() {
 		commandOrCategory := strings.Join(args, " ")
 		command, err := FindCommand(commandOrCategory)
 		if err == nil {
-			fmt.Println("Command called help found")
 			text := formatCommandHelp(command, "/", commandOrCategory)
 			msg.Reply(text)
 		} else {
-			fmt.Println("Command not found, building dynamic menu")
 			menu := dynamicMenu(commandOrCategory, msg.Bot)
 			msg.Reply(menu)
 		}
@@ -147,15 +153,32 @@ func RegisterHelpMenu() {
 		"misc",
 		&[]string{"ajuda"},
 		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
-		&help,
+		help,
 	)
 }
 
 func RunCommand(msg *m.Message) {
+	slog.Info(fmt.Sprintf("FOund %d commands", len(*GetLoadedCommands())))
+
+	for _, command := range *GetLoadedCommands() {
+		slog.Info("Command: " + command.Name)
+	}
+	slog.Info(fmt.Sprintf("Received command: %s", *msg.Command))
 	cmd, err := FindCommand(*msg.Command)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	(*cmd.Callable)(msg)
+
+	if cmd.Guards != nil {
+		for _, guard := range cmd.Guards {
+			if err := guard(msg); err != nil {
+				slog.Error(err.Error())
+				msg.Reply(err.Error())
+				return
+			}
+		}
+	}
+
+	cmd.Callable(msg)
 }

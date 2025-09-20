@@ -40,3 +40,7 @@ func (s *MemberService) GetOrCreateMember(chatJid, memberJid string) (*models.Me
 func (s *MemberService) Update(member *models.Member) error {
 	return s.repo.Update(member)
 }
+
+func (s *MemberService) Close() error {
+	return s.repo.Close()
+}

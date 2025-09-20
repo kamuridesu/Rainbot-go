@@ -9,6 +9,7 @@ type FilterRepository interface {
 	FindAllByChat(chatJid string) ([]*models.Filter, error)
 	Create(filter *models.Filter) error
 	Delete(chatjid, pattern string) error
+	Close() error
 }
 
 type filterRepository struct {
@@ -17,6 +18,10 @@ type filterRepository struct {
 
 func NewFilterRepository(db *providers.Database) FilterRepository {
 	return &filterRepository{db: db}
+}
+
+func (r *filterRepository) Close() error {
+	return r.db.Close()
 }
 
 func (r *filterRepository) FindAllByChat(chatJid string) ([]*models.Filter, error) {
