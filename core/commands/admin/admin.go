@@ -2,13 +2,13 @@ package admin
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -60,19 +60,14 @@ func WarnUser(m *messages.Message) {
 
 	var toBeBanned []*models.Member
 
-	slog.Info("Starting ban users")
 	for _, user := range m.MentionedMembers {
 		user.Warns++
-		slog.Info("Updating count for " + user.JID)
 		m.Bot.DB.Member.Update(user)
 		if user.Warns >= m.Chat.WarnBanThreshold {
-			slog.Info("User has reached warn quota, banning")
 			toBeBanned = append(toBeBanned, user)
-			slog.Info("User scheduled to be banned!")
 			continue
 		}
 		message += fmt.Sprintf("User %s tem %d avisos, mais %d e será banido!\n", user.JID, user.Warns, m.Chat.WarnBanThreshold-user.Warns)
-		slog.Info("Successfully warned user")
 	}
 
 	if len(toBeBanned) > 0 {
@@ -82,11 +77,73 @@ func WarnUser(m *messages.Message) {
 			return
 		}
 		message += "\n" + msg
-
 	}
 
 	message = strings.TrimSpace(message)
 
 	m.Reply(message, emojis.Success)
+
+}
+
+func RemoveUserWarn(m *messages.Message) {
+
+	message := ""
+
+	for _, user := range m.MentionedMembers {
+		if user.Warns < 1 {
+			continue
+		}
+		user.Warns--
+		m.Bot.DB.Member.Update(user)
+		message += fmt.Sprintf("Aviso removido, agora %s tem %d avisos.", user.JID, user.Warns)
+	}
+
+	m.Reply(message, emojis.Success)
+
+}
+
+func MentionMembers(m *messages.Message) {
+
+	message := ""
+
+	if len(*m.Args) > 0 {
+		message = strings.Join(*m.Args, " ")
+	}
+
+	if message == "" && m.RawEvent.Message.ExtendedTextMessage != nil && m.RawEvent.Message.ExtendedTextMessage.ContextInfo.QuotedMessage != nil {
+		message = *m.RawEvent.Message.ExtendedTextMessage.ContextInfo.QuotedMessage.Conversation
+	}
+
+	if message == "" {
+		m.Reply("Nenhuma mensagem recebida como argumento ou mencionada.", emojis.Fail)
+		return
+	}
+
+	group, err := m.Bot.Client.GetGroupInfo(m.RawEvent.Info.Chat)
+	if err != nil {
+		m.Reply(fmt.Sprintf("Houve um erro ao processar dados do grupo: %s\n", err.Error()))
+		return
+	}
+
+	var jids []string
+
+	for _, member := range group.Participants {
+		jids = append(jids, member.JID.String())
+	}
+
+	_, err = m.SendMessage(&waE2E.Message{
+		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+			Text: &message,
+			ContextInfo: &waE2E.ContextInfo{
+				MentionedJID: jids,
+			},
+		},
+	})
+	if err != nil {
+		m.Reply(fmt.Sprintf("Falha ao enviar mensagem: %s", err.Error()), emojis.Fail)
+		return
+	}
+
+	m.React(emojis.Success)
 
 }

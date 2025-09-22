@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"log/slog"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -26,7 +27,63 @@ type CommandList []*Command
 
 var loadedCommands *CommandList = &CommandList{}
 
-func NewCommand(name, desc, category string, aliases, examples *[]string, callback Callback, guards ...func(message *m.Message) error) *Command {
+func init() {
+	slog.Info("Resgistering meta-command help")
+	help := func(msg *m.Message) {
+		args := []string{}
+		if msg.Args != nil {
+			args = *msg.Args
+		}
+		commandOrCategory := strings.Join(args, " ")
+		command, err := FindCommand(commandOrCategory)
+		if err == nil {
+			text := formatCommandHelp(command, "/", commandOrCategory)
+			msg.Reply(text)
+		} else {
+			menu := dynamicMenu(commandOrCategory, msg.Bot)
+			msg.Reply(menu)
+		}
+	}
+
+	NewCommand("help",
+		"Mostra o menu de ajuda ou descrição de um comando",
+		"misc",
+		&[]string{"ajuda"},
+		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
+		help,
+	)
+}
+
+func validateCommand(c *Command) error {
+
+	for _, cmd := range *loadedCommands {
+
+		if cmd.Name == c.Name || slices.Contains(*cmd.Aliases, c.Name) {
+			return fmt.Errorf("Name %s is already reserved for a command", cmd.Name)
+		}
+
+		if reflect.ValueOf(cmd.Callable).Pointer() == reflect.ValueOf(c.Callable).Pointer() {
+			return fmt.Errorf("Function assigned to cmd %s is already attached to %s", c.Name, cmd.Name)
+		}
+
+		for _, alias := range *c.Aliases {
+			if alias == cmd.Name || slices.Contains(*cmd.Aliases, alias) {
+				return fmt.Errorf("Alias %s is already present in function %s", alias, c.Name)
+			}
+		}
+
+	}
+	return nil
+}
+
+func NewCommand(name,
+	desc,
+	category string,
+	aliases,
+	examples *[]string,
+	callback Callback,
+	guards ...func(message *m.Message) error) (*Command, error) {
+
 	if aliases == nil {
 		aliases = &[]string{}
 	}
@@ -43,8 +100,13 @@ func NewCommand(name, desc, category string, aliases, examples *[]string, callba
 		Guards:      guards,
 	}
 
+	if err := validateCommand(&command); err != nil {
+		slog.Error(err.Error())
+		panic(err)
+	}
+
 	*loadedCommands = append(*loadedCommands, &command)
-	return &command
+	return &command, nil
 }
 
 func GetLoadedCommands() *CommandList {
@@ -127,33 +189,6 @@ func dynamicMenu(category string, bot *bot.Bot) string {
 	return fmt.Sprintf("< %s > \n\n Comandos da categoria: \n\n- %s",
 		*bot.Name,
 		strings.Join(commandNames, "\n- "),
-	)
-}
-
-func RegisterHelpMenu() {
-	slog.Info("Resgistering meta-command help")
-	help := func(msg *m.Message) {
-		args := []string{}
-		if msg.Args != nil {
-			args = *msg.Args
-		}
-		commandOrCategory := strings.Join(args, " ")
-		command, err := FindCommand(commandOrCategory)
-		if err == nil {
-			text := formatCommandHelp(command, "/", commandOrCategory)
-			msg.Reply(text)
-		} else {
-			menu := dynamicMenu(commandOrCategory, msg.Bot)
-			msg.Reply(menu)
-		}
-	}
-
-	NewCommand("help",
-		"Mostra o menu de ajuda ou descrição de um comando",
-		"misc",
-		&[]string{"ajuda"},
-		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
-		help,
 	)
 }
 

@@ -8,7 +8,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 )
 
-func setup(m *messages.Message) {
+func Setup(m *messages.Message) {
 
 	if len(*m.Args) < 1 {
 		config := utils.GetHumanReadableSetup(m.Chat)

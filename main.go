@@ -24,7 +24,6 @@ func main() {
 	defer singleton.Close()
 
 	ctx := context.Background()
-	commands.RegisterHelpMenu()
 
 	slog.Info(fmt.Sprintf("FOund %d commands", len(*commands.GetLoadedCommands())))
 

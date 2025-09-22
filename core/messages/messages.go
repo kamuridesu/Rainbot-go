@@ -192,10 +192,13 @@ func (h *Handler) Handle(event any) {
 	}
 }
 
+func (m *Message) SendMessage(msg *waE2E.Message) (*whatsmeow.SendResponse, error) {
+	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, msg)
+	return &resp, err
+
+}
+
 func (m *Message) Reply(content string, reaction ...emojis.Emoji) (*whatsmeow.SendResponse, error) {
-	if content == "" {
-		return nil, fmt.Errorf("err msg is empty")
-	}
 
 	if len(reaction) != 0 {
 		_, err := m.React(reaction[0])
@@ -204,6 +207,11 @@ func (m *Message) Reply(content string, reaction ...emojis.Emoji) (*whatsmeow.Se
 		}
 	}
 
+	content = strings.TrimSpace(content)
+
+	if content == "" {
+		return nil, fmt.Errorf("err msg is empty")
+	}
 	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, &waE2E.Message{
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
 			Text: proto.String(content),
