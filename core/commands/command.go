@@ -9,6 +9,7 @@ import (
 
 	m "github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/bot"
+	"github.com/kamuridesu/rainbot-go/internal/emojis"
 )
 
 type Callback func(message *m.Message)
@@ -19,6 +20,9 @@ type Command struct {
 	Category    string
 	Description string
 	Examples    *[]string
+	IsAdult     bool
+	IsGame      bool
+	IsFun       bool
 	Callable    Callback
 	Guards      []func(message *m.Message) error
 }
@@ -50,6 +54,9 @@ func init() {
 		"misc",
 		&[]string{"ajuda"},
 		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
+		false,
+		false,
+		false,
 		help,
 	)
 }
@@ -81,6 +88,9 @@ func NewCommand(name,
 	category string,
 	aliases,
 	examples *[]string,
+	isFun,
+	isGame,
+	isAdult bool,
 	callback Callback,
 	guards ...func(message *m.Message) error) (*Command, error) {
 
@@ -96,6 +106,9 @@ func NewCommand(name,
 		Category:    category,
 		Description: desc,
 		Examples:    examples,
+		IsAdult:     isAdult,
+		IsGame:      isGame,
+		IsFun:       isFun,
 		Callable:    callback,
 		Guards:      guards,
 	}
@@ -193,15 +206,21 @@ func dynamicMenu(category string, bot *bot.Bot) string {
 }
 
 func RunCommand(msg *m.Message) {
-	slog.Info(fmt.Sprintf("FOund %d commands", len(*GetLoadedCommands())))
-
-	for _, command := range *GetLoadedCommands() {
-		slog.Info("Command: " + command.Name)
-	}
 	slog.Info(fmt.Sprintf("Received command: %s", *msg.Command))
 	cmd, err := FindCommand(*msg.Command)
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+
+	isBlocked := (cmd.IsAdult && msg.Chat.AllowAdults == 0) ||
+		(cmd.IsFun && msg.Chat.AllowFun == 0) ||
+		(cmd.IsGame && msg.Chat.AllowGames == 0)
+
+	slog.Info(fmt.Sprintf("Is frim group: %v", msg.IsFromGroup()))
+	slog.Info(fmt.Sprintf("is blocked: %v", isBlocked))
+	if msg.IsFromGroup() && isBlocked {
+		msg.Reply("Comando não pode ser usado neste grupo.", emojis.Fail)
 		return
 	}
 

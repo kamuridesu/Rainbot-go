@@ -62,12 +62,14 @@ func WarnUser(m *messages.Message) {
 
 	for _, user := range m.MentionedMembers {
 		user.Warns++
-		m.Bot.DB.Member.Update(user)
 		if user.Warns >= m.Chat.WarnBanThreshold {
 			toBeBanned = append(toBeBanned, user)
-			continue
+			user.Warns = 0
+		} else {
+			message += fmt.Sprintf("User %s tem %d avisos, mais %d e será banido!\n", user.JID, user.Warns, m.Chat.WarnBanThreshold-user.Warns)
+
 		}
-		message += fmt.Sprintf("User %s tem %d avisos, mais %d e será banido!\n", user.JID, user.Warns, m.Chat.WarnBanThreshold-user.Warns)
+		m.Bot.DB.Member.Update(user)
 	}
 
 	if len(toBeBanned) > 0 {
@@ -138,12 +140,34 @@ func MentionMembers(m *messages.Message) {
 				MentionedJID: jids,
 			},
 		},
-	})
+	}, m.RawEvent.Info.Chat)
 	if err != nil {
 		m.Reply(fmt.Sprintf("Falha ao enviar mensagem: %s", err.Error()), emojis.Fail)
 		return
 	}
 
 	m.React(emojis.Success)
+
+}
+
+func changeUserAdminStatus(m *messages.Message, demote ...bool) error {
+
+	var usersToPromote []types.JID
+
+	for _, user := range m.MentionedMembers {
+		jid, err := types.ParseJID(user.JID)
+		if err != nil {
+			return err
+		}
+		usersToPromote = append(usersToPromote, jid)
+	}
+
+	action := whatsmeow.ParticipantChangePromote
+	if demote != nil && demote[0] {
+		action = whatsmeow.ParticipantChangeDemote
+	}
+	m.Bot.Client.UpdateGroupParticipants(m.RawEvent.Info.Chat, usersToPromote, action)
+
+	return nil
 
 }

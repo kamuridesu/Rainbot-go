@@ -4,14 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/internal/bot"
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
+	"github.com/kamuridesu/rainbot-go/internal/utils"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 )
@@ -23,6 +27,9 @@ const (
 	StickerMessage
 	ImageMessage
 	VideoMessage
+	AudioMessage
+	ReactionMessage
+	Unknown
 )
 
 type Message struct {
@@ -30,6 +37,7 @@ type Message struct {
 	Bot              *bot.Bot
 	Args             *[]string
 	RawEvent         *events.Message
+	RawMessage       *waE2E.Message
 	Text             *string
 	Type             MessageType
 	Command          *string
@@ -37,16 +45,18 @@ type Message struct {
 	Author           *models.Member
 	Filters          []*models.Filter
 	MentionedMembers []*models.Member
+	QuotedMessage    *Message
 }
 
 type Handler struct {
 	Ctx           context.Context
 	Bot           *bot.Bot
-	CommandRunner func(*Message)
+	CommandHanler func(*Message)
+	ChatHandler   func(*Message)
 }
 
-func NewHandler(ctx context.Context, commandRunner func(*Message)) *Handler {
-	return &Handler{ctx, nil, commandRunner}
+func NewHandler(ctx context.Context, commandHandler, chatHandler func(*Message)) *Handler {
+	return &Handler{ctx, nil, commandHandler, chatHandler}
 }
 
 func (h *Handler) AttachBot(b *bot.Bot) {
@@ -66,7 +76,7 @@ func deduplicateMentions(mentions []string) []string {
 	return tmp
 }
 
-func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message) (*Message, error) {
+func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMessage *waE2E.Message) (*Message, error) {
 	var message Message
 	message.Ctx = ctx
 	message.Bot = bot
@@ -77,9 +87,6 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message) (*Message,
 		return nil, err
 	}
 	authorJid := v.Info.Sender.ToNonAD().String()
-	if authorJid == "" {
-		authorJid = v.Info.SenderAlt.ToNonAD().String()
-	}
 	member, err := bot.DB.Member.GetOrCreateMember(v.Info.Chat.String(), authorJid)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error fetching member info from db, err is: %v", err))
@@ -98,32 +105,54 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message) (*Message,
 	var messageText *string
 	var mentionedJIDs []string
 
-	if v.Message.Conversation != nil {
+	rawMsg := v.Message
+	if quotedMessage != nil {
+		rawMsg = quotedMessage
+	}
+	message.RawMessage = rawMsg
+
+	if rawMsg.Conversation != nil {
 		message.Type = TextMessage
-		messageText = v.Message.Conversation
-	} else if v.Message.ExtendedTextMessage != nil {
+		messageText = rawMsg.Conversation
+	} else if rawMsg.ExtendedTextMessage != nil {
 		message.Type = TextMessage
-		messageText = v.Message.ExtendedTextMessage.Text
-		mentionedJIDs = slices.Concat(mentionedJIDs, v.Message.ExtendedTextMessage.ContextInfo.GetMentionedJID())
-		if v.Message.ExtendedTextMessage.ContextInfo.Participant != nil {
-			mentionedJIDs = append(mentionedJIDs, *v.Message.ExtendedTextMessage.ContextInfo.Participant)
+		messageText = rawMsg.ExtendedTextMessage.Text
+		mentionedJIDs = slices.Concat(mentionedJIDs, rawMsg.ExtendedTextMessage.ContextInfo.GetMentionedJID())
+		if rawMsg.ExtendedTextMessage.ContextInfo.Participant != nil {
+			mentionedJIDs = append(mentionedJIDs, *rawMsg.ExtendedTextMessage.ContextInfo.Participant)
 		}
-	} else if v.Message.ImageMessage != nil {
-		messageText = v.Message.ImageMessage.Caption
+		if rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage != nil && quotedMessage == nil {
+			message.QuotedMessage, err = newMessage(ctx, bot, v, rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else if rawMsg.ImageMessage != nil {
+		messageText = rawMsg.ImageMessage.Caption
 		message.Type = ImageMessage
-		mentionedJIDs = slices.Concat(mentionedJIDs, v.Message.ImageMessage.ContextInfo.GetMentionedJID())
-		if participant := v.Message.ImageMessage.ContextInfo.Participant; participant != nil {
-			mentionedJIDs = append(mentionedJIDs, *participant)
+		if rawMsg.ImageMessage.ContextInfo != nil {
+			mentionedJIDs = slices.Concat(mentionedJIDs, rawMsg.ImageMessage.ContextInfo.GetMentionedJID())
+			if participant := rawMsg.ImageMessage.ContextInfo.Participant; participant != nil {
+				mentionedJIDs = append(mentionedJIDs, *participant)
+			}
 		}
-	} else if v.Message.VideoMessage != nil {
+	} else if rawMsg.VideoMessage != nil {
 		message.Type = VideoMessage
-		messageText = v.Message.VideoMessage.Caption
-		mentionedJIDs = slices.Concat(mentionedJIDs, v.Message.VideoMessage.ContextInfo.GetMentionedJID())
-		if participant := v.Message.VideoMessage.ContextInfo.Participant; participant != nil {
-			mentionedJIDs = append(mentionedJIDs, *participant)
+		messageText = rawMsg.VideoMessage.Caption
+		if rawMsg.VideoMessage.ContextInfo != nil {
+			mentionedJIDs = slices.Concat(mentionedJIDs, rawMsg.VideoMessage.ContextInfo.GetMentionedJID())
+			if participant := rawMsg.VideoMessage.ContextInfo.Participant; participant != nil {
+				mentionedJIDs = append(mentionedJIDs, *participant)
+			}
 		}
-	} else if v.Message.StickerMessage != nil {
+	} else if rawMsg.StickerMessage != nil {
 		message.Type = StickerMessage
+	} else if rawMsg.AudioMessage != nil {
+		message.Type = AudioMessage
+	} else if rawMsg.ReactionMessage != nil {
+		message.Type = ReactionMessage
+	} else {
+		message.Type = Unknown
 	}
 
 	mentionedJIDs = deduplicateMentions(mentionedJIDs)
@@ -155,12 +184,29 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message) (*Message,
 	return &message, nil
 }
 
+func (m *Message) HasValidMedia(ignoreSticker ...bool) bool {
+	if len(ignoreSticker) > 0 && ignoreSticker[0] {
+		return m.Type == ImageMessage || m.Type == VideoMessage
+	}
+	return m.Type == ImageMessage || m.Type == VideoMessage || m.Type == StickerMessage
+
+}
+
 func (h *Handler) Handle(event any) {
+
 	if h.Bot == nil {
 		panic(fmt.Errorf("no bot instance attached to handler"))
 	}
+
+	slog.Info(fmt.Sprintf("Event: %v", event))
+
 	switch v := event.(type) {
 	case *events.Message:
+		if v.Info.IsFromMe {
+			return
+		}
+		ctx, cancel := context.WithTimeout(h.Ctx, time.Minute)
+		defer cancel()
 		fmt.Println("=============== Received a message! =====================")
 		fmt.Println("Chat info: ")
 		fmt.Printf("Chat id: %s\n", v.Info.Chat.String())
@@ -174,7 +220,7 @@ func (h *Handler) Handle(event any) {
 			fmt.Printf("Mentions: %s\n", v.Message.ExtendedTextMessage.ContextInfo.GetMentionedJID())
 		}
 
-		message, err := newMessage(h.Ctx, h.Bot, v)
+		message, err := newMessage(ctx, h.Bot, v, nil)
 		if err != nil {
 			slog.Error("error parsing message, err is: " + err.Error())
 			return
@@ -183,19 +229,197 @@ func (h *Handler) Handle(event any) {
 		if message.Text != nil {
 			if strings.HasPrefix(*message.Text, message.Chat.Prefix) {
 				fmt.Println("Received message with prefix " + message.Chat.Prefix)
-				h.CommandRunner(message)
+				h.CommandHanler(message)
+			} else {
+				h.ChatHandler(message)
 			}
 		}
-		if v.Info.IsFromMe {
-			// message.Reply(fmt.Sprintf("Você disse: %s", *message.Text))
-		}
+
 	}
 }
 
-func (m *Message) SendMessage(msg *waE2E.Message) (*whatsmeow.SendResponse, error) {
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, msg)
+func (m *Message) SendMessage(msg *waE2E.Message, chatId types.JID) (*whatsmeow.SendResponse, error) {
+	resp, err := m.Bot.Client.SendMessage(m.Ctx, chatId, msg)
 	return &resp, err
+}
 
+func (m *Message) SendVideoMessage(caption string, video []byte, chatId types.JID, quoteMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {
+	slog.Info("Uploading video")
+	resp, err := m.Bot.Client.Upload(m.Ctx, video, whatsmeow.MediaVideo)
+	if err != nil {
+		slog.Error(err.Error())
+		return nil, err
+	}
+	var quote *waE2E.ContextInfo
+	if len(quoteMessage) > 0 {
+		quote = quoteMessage[0]
+	}
+	slog.Info("Video uploaded successfully")
+	message := &waE2E.Message{
+		VideoMessage: &waE2E.VideoMessage{
+			Caption:       proto.String(caption),
+			Mimetype:      proto.String("video/mp4"),
+			URL:           &resp.URL,
+			DirectPath:    &resp.DirectPath,
+			MediaKey:      resp.MediaKey,
+			FileEncSHA256: resp.FileEncSHA256,
+			FileSHA256:    resp.FileSHA256,
+			FileLength:    &resp.FileLength,
+			ContextInfo:   quote,
+		},
+	}
+	slog.Info("Sending media message")
+	r, err := m.Bot.Client.SendMessage(m.Ctx, chatId, message)
+	if err != nil {
+		slog.Error(err.Error())
+		return nil, err
+	}
+	slog.Info("media sent successfully")
+	return &r, err
+}
+
+func (m *Message) SendImageMessage(caption string, image []byte, chatId types.JID, quotedMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {
+	slog.Info("Uploading image")
+	resp, err := m.Bot.Client.Upload(m.Ctx, image, whatsmeow.MediaImage)
+	if err != nil {
+		slog.Error(err.Error())
+		return nil, err
+	}
+	slog.Info("Image uploaded successfully")
+
+	var quoted *waE2E.ContextInfo
+	if len(quotedMessage) > 0 {
+		quoted = quotedMessage[0]
+	}
+	message := &waE2E.Message{
+		ImageMessage: &waE2E.ImageMessage{
+			Caption:       proto.String(caption),
+			Mimetype:      proto.String("image/jpeg"),
+			URL:           &resp.URL,
+			DirectPath:    &resp.DirectPath,
+			MediaKey:      resp.MediaKey,
+			FileEncSHA256: resp.FileEncSHA256,
+			FileSHA256:    resp.FileSHA256,
+			FileLength:    &resp.FileLength,
+			ContextInfo:   quoted,
+		},
+	}
+	slog.Info("Sending media message")
+	r, err := m.Bot.Client.SendMessage(m.Ctx, chatId, message)
+	if err != nil {
+		slog.Error(err.Error())
+		return nil, err
+	}
+	slog.Info("media sent successfully")
+	return &r, err
+}
+
+func (m *Message) SendStickerMessage(media []byte, _type MessageType, chatId types.JID, quotedMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {
+	type_ := whatsmeow.MediaImage
+	var err error
+	contentType := http.DetectContentType(media)
+	switch _type {
+	case VideoMessage:
+	case ImageMessage:
+		if contentType != "image/webp" {
+			media, err = utils.ToWebp(media)
+			contentType = http.DetectContentType(media)
+			if err != nil {
+				slog.Error("Error converting media: " + err.Error())
+				return nil, err
+			}
+		}
+	}
+	resp, err := m.Bot.Client.Upload(m.Ctx, media, type_)
+	if err != nil {
+		slog.Error("Error uploading media: " + err.Error())
+		return nil, err
+	}
+	var quoted *waE2E.ContextInfo
+	if len(quotedMessage) > 0 {
+		quoted = quotedMessage[0]
+	}
+	message := &waE2E.Message{
+		StickerMessage: &waE2E.StickerMessage{
+			Mimetype:      proto.String(contentType),
+			URL:           proto.String(resp.URL),
+			DirectPath:    proto.String(resp.DirectPath),
+			FileSHA256:    resp.FileSHA256,
+			FileEncSHA256: resp.FileEncSHA256,
+			MediaKey:      resp.MediaKey,
+			FileLength:    &resp.FileLength,
+			ContextInfo:   quoted,
+			IsAnimated:    proto.Bool(_type == VideoMessage),
+		},
+	}
+
+	r, err := m.Bot.Client.SendMessage(m.Ctx, chatId, message)
+	return &r, err
+}
+
+func (m *Message) ReplySticker(content []byte, type_ MessageType, reaction ...emojis.Emoji) (*whatsmeow.SendResponse, error) {
+	r, err := m.SendStickerMessage(content, type_, m.RawEvent.Info.Chat, &waE2E.ContextInfo{
+		StanzaID:    proto.String(m.RawEvent.Info.ID),
+		Participant: proto.String(m.RawEvent.Info.Sender.String()),
+		QuotedMessage: &waE2E.Message{
+			Conversation: proto.String(*m.Text),
+		},
+	})
+	if err != nil {
+		slog.Error("Error sending sticker: " + err.Error())
+		return nil, err
+	}
+	if len(reaction) != 0 {
+		_, err := m.React(reaction[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return r, err
+}
+
+func (m *Message) SendMediaMessage(content []byte, caption string, _type MessageType, chatId types.JID, quoteMessage ...*waE2E.ContextInfo) {
+	var err error
+	var quote *waE2E.ContextInfo
+	if len(quoteMessage) > 0 {
+		quote = quoteMessage[0]
+	}
+
+	switch _type {
+	case ImageMessage:
+		_, err = m.SendImageMessage(caption, content, chatId, quote)
+	case VideoMessage:
+		_, err = m.SendVideoMessage(caption, content, chatId, quote)
+	}
+	if err != nil {
+		slog.Error(err.Error())
+	}
+}
+
+func (m *Message) ReplyMedia(content []byte, caption string, _type MessageType, reaction ...emojis.Emoji) (*whatsmeow.SendResponse, error) {
+	react := func() error {
+		if len(reaction) != 0 {
+			_, err := m.React(reaction[0])
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	quote := &waE2E.ContextInfo{
+		StanzaID:    proto.String(m.RawEvent.Info.ID),
+		Participant: proto.String(m.RawEvent.Info.Sender.String()),
+		QuotedMessage: &waE2E.Message{
+			Conversation: proto.String(*m.Text),
+		},
+	}
+
+	m.SendMediaMessage(content, caption, _type, m.RawEvent.Info.Chat, quote)
+
+	react()
+
+	return nil, nil
 }
 
 func (m *Message) Reply(content string, reaction ...emojis.Emoji) (*whatsmeow.SendResponse, error) {
@@ -212,15 +436,18 @@ func (m *Message) Reply(content string, reaction ...emojis.Emoji) (*whatsmeow.Se
 	if content == "" {
 		return nil, fmt.Errorf("err msg is empty")
 	}
+
+	mentions := utils.GenerateMentionFromText(content)
 	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, &waE2E.Message{
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
-			Text: proto.String(content),
+			Text: proto.String(mentions.Text),
 			ContextInfo: &waE2E.ContextInfo{
 				StanzaID:    proto.String(m.RawEvent.Info.ID),
 				Participant: proto.String(m.RawEvent.Info.Sender.String()),
 				QuotedMessage: &waE2E.Message{
 					Conversation: proto.String(*m.Text),
 				},
+				MentionedJID: mentions.Mention,
 			},
 		},
 	}, whatsmeow.SendRequestExtra{})

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 
@@ -26,7 +25,6 @@ func boolToInt(b bool) int {
 
 func ParseSetupText(text string, chat *models.Chat, chatService *services.ChatService) error {
 
-	slog.Info("Setup text: " + text)
 	for index, line := range strings.Split(text, "\n") {
 		data := strings.Split(line, "=")
 		if len(data) != 2 {

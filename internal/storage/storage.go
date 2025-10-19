@@ -2,7 +2,16 @@ package storage
 
 import (
 	"errors"
+	"log/slog"
+	"math/rand/v2"
 	"os"
+)
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+var (
+	ErrNotExists = errors.New("File does not exists")
+	ErrReadOnly  = errors.New("File in read only mode")
 )
 
 type FileStorage interface {
@@ -19,6 +28,7 @@ func NewLocalFileStorage() FileStorage {
 }
 
 func (s *LocalFileStorage) Write(filename string, data []byte) error {
+	slog.Info("writing file")
 	return os.WriteFile(filename, data, 0644)
 }
 
@@ -32,7 +42,7 @@ func (s *LocalFileStorage) Exists(filename string) (bool, error) {
 		return true, nil
 	}
 	if os.IsNotExist(err) {
-		return false, nil
+		return false, ErrNotExists
 	}
 	return false, err
 }
@@ -65,6 +75,14 @@ type File struct {
 	storage FileStorage
 }
 
+func RandomFilename(ext string) string {
+	tmp := make([]rune, 20)
+	for i := range 20 {
+		tmp[i] = letters[rand.IntN(len(letters))]
+	}
+	return string(tmp) + "." + ext
+}
+
 func NewFile(filename string, mode ...OpenFileMode) *File {
 	m := ModeWrite
 	if len(mode) > 0 {
@@ -79,6 +97,11 @@ func NewFile(filename string, mode ...OpenFileMode) *File {
 }
 
 func (f *File) Read() ([]byte, error) {
+	_, err := f.storage.Exists(f.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	return f.storage.Read(f.Name)
 }
 
@@ -88,11 +111,11 @@ func (f *File) Delete() error {
 
 func (f *File) Write(data []byte) error {
 	if f.mode == ModeReadOnly {
-		return errors.New("file is in read only mode")
+		return ErrReadOnly
 	}
 	if f.mode == ModeAppend {
 		content, err := f.storage.Read(f.Name)
-		if err != nil && !os.IsNotExist(err) {
+		if err != nil {
 			return err
 		}
 		data = append(content, data...)
@@ -102,4 +125,8 @@ func (f *File) Write(data []byte) error {
 
 func (f *File) WriteString(data string) error {
 	return f.Write([]byte(data))
+}
+
+func (f *File) Exists() (bool, error) {
+	return f.storage.Exists(f.Name)
 }

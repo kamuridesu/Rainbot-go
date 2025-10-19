@@ -7,4 +7,5 @@ const (
 	Waiting   Emoji = "⏳"
 	Success   Emoji = "✅"
 	Fail      Emoji = "❌"
+	Eye       Emoji = "👀"
 )

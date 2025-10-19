@@ -8,12 +8,15 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/kamuridesu/rainbot-go/core/chat"
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
 	"github.com/kamuridesu/rainbot-go/internal/database"
 
 	_ "github.com/kamuridesu/rainbot-go/core/commands/admin"
+	_ "github.com/kamuridesu/rainbot-go/core/commands/fun"
+	_ "github.com/kamuridesu/rainbot-go/core/commands/test"
 )
 
 func main() {
@@ -31,7 +34,7 @@ func main() {
 		slog.Info("Command: " + command.Name)
 	}
 
-	handler := messages.NewHandler(ctx, commands.RunCommand)
+	handler := messages.NewHandler(ctx, commands.RunCommand, chat.ChatHandler)
 
 	bot, err := b.New(ctx, "Teto", "sqlite3", "file:examplestore.db?_foreign_keys=on", handler, singleton)
 	if err != nil {
