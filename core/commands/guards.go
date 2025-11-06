@@ -63,16 +63,21 @@ func HasMentionedMembers(m *messages.Message) error {
 
 }
 
-// Checks for __at least__ n number of arguments
+// Checks for __at least__ n number of arguments if atMax_ is empty or false
 // Returns a function thats the traditional guard as expected by the runner.
-func HasArgs(atLeast int) func(m *messages.Message) error {
+func HasArgs(numberOfArgs int, atMax_ ...bool) func(m *messages.Message) error {
+	atMax := false
+	if len(atMax_) > 0 {
+		atMax = atMax_[0]
+	}
+
 	return func(m *messages.Message) error {
-		if atLeast == 0 {
+		if numberOfArgs == 0 {
 			return nil
 		}
 
-		if len(*m.Args) < atLeast {
-			return fmt.Errorf("Comando esperava %d argumentos!", atLeast)
+		if len(*m.Args) < numberOfArgs || (atMax && len(*m.Args) > numberOfArgs) {
+			return fmt.Errorf("Comando esperava %d argumentos!", numberOfArgs)
 		}
 
 		return nil

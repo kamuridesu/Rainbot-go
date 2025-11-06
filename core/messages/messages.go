@@ -395,6 +395,42 @@ func (m *Message) ReplySticker(content []byte, type_ MessageType, reaction ...em
 	return r, err
 }
 
+func (m *Message) SendAudioMessage(media []byte, chatId types.JID, quotedMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {
+	slog.Info("Uploading audio")
+	resp, err := m.Bot.Client.Upload(m.Ctx, media, whatsmeow.MediaAudio)
+	if err != nil {
+		slog.Error(err.Error())
+		return nil, err
+	}
+	slog.Info("Audio uploaded successfully")
+
+	var quoted *waE2E.ContextInfo
+	if len(quotedMessage) > 0 {
+		quoted = quotedMessage[0]
+	}
+	message := &waE2E.Message{
+		AudioMessage: &waE2E.AudioMessage{
+			Mimetype:      proto.String("audio/ogg; codecs=opus"),
+			URL:           &resp.URL,
+			DirectPath:    &resp.DirectPath,
+			MediaKey:      resp.MediaKey,
+			FileEncSHA256: resp.FileEncSHA256,
+			FileSHA256:    resp.FileSHA256,
+			FileLength:    &resp.FileLength,
+			ContextInfo:   quoted,
+		},
+	}
+	slog.Info("Sending media message")
+	r, err := m.Bot.Client.SendMessage(m.Ctx, chatId, message)
+	if err != nil {
+		slog.Error(err.Error())
+		return nil, err
+	}
+	slog.Info("media sent successfully")
+	return &r, err
+
+}
+
 func (m *Message) SendMediaMessage(content []byte, caption string, _type MessageType, chatId types.JID, quoteMessage ...*waE2E.ContextInfo) {
 	var err error
 	var quote *waE2E.ContextInfo
@@ -407,6 +443,8 @@ func (m *Message) SendMediaMessage(content []byte, caption string, _type Message
 		_, err = m.SendImageMessage(caption, content, chatId, quote)
 	case VideoMessage:
 		_, err = m.SendVideoMessage(caption, content, chatId, quote)
+	case AudioMessage:
+		_, err = m.SendAudioMessage(content, chatId, quote)
 	}
 	if err != nil {
 		slog.Error(err.Error())

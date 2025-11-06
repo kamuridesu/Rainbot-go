@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -46,5 +47,40 @@ func Bug(m *messages.Message) {
 		return
 	}
 	m.React(emojis.Success)
+
+}
+
+func Broadcast(m *messages.Message) {
+
+	bcPasswd := os.Getenv("BROADCAST_PASSWORD")
+	if bcPasswd == "" {
+		m.Reply("Nenhuma senha configurada.", emojis.Fail)
+		return
+	}
+
+	passwd := (*m.Args)[0]
+	message := "Transmissão: \n\n" + strings.Join((*m.Args)[1:], " ")
+
+	if passwd != bcPasswd {
+		m.Reply("Senha invalida.", emojis.Fail)
+		return
+	}
+
+	groups, err := m.Bot.Client.GetJoinedGroups(m.Ctx)
+	if err != nil {
+		m.Reply("Houve um erro ao ler os grupos: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	for _, group := range groups {
+		msg := &waE2E.Message{
+			Conversation: &message,
+		}
+		_, err := m.SendMessage(msg, group.JID)
+		if err != nil {
+			slog.Error(err.Error())
+			continue
+		}
+	}
 
 }

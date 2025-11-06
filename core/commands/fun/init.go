@@ -118,4 +118,8 @@ func init() {
 			m.Reply(*l, emojis.Success)
 		},
 	)
+
+	commands.NewCommand("video", "Baixa um video", "diversão", nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
+	commands.NewCommand("music", "Baixa uma musica", "diversão", nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
+
 }
