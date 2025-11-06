@@ -8,6 +8,7 @@ import (
 )
 
 type MemberRepository interface {
+	GetAllByChat(chatJid string) ([]*models.Member, error)
 	FindByChatAndId(chatJid, memberJid string) (*models.Member, error)
 	Create(chatJid, memberJid string) error
 	Update(member *models.Member) error
@@ -53,4 +54,24 @@ func (r *memberRepository) Update(member *models.Member) error {
 		"UPDATE member SET warns = ?, points = ?, messages = ?, silenced = ? WHERE chatId = ? AND jid = ?",
 	), member.Warns, member.Points, member.Messages, member.Silenced, member.ChatID, member.JID)
 	return err
+}
+
+func (r *memberRepository) GetAllByChat(chatJid string) ([]*models.Member, error) {
+	rows, err := r.db.DB.Query(r.db.GetQuery(
+		"SELECT chatId, jid, messages, points, warns, silenced FROM member WHERE chatId = ?",
+	), chatJid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var members []*models.Member
+	for rows.Next() {
+		var member models.Member
+		if err := rows.Scan(&member.ChatID, &member.JID, &member.Messages, &member.Points, &member.Warns, &member.Silenced); err != nil {
+			return nil, err
+		}
+		members = append(members, &member)
+	}
+	return members, nil
 }

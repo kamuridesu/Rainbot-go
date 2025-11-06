@@ -63,16 +63,16 @@ func HasMentionedMembers(m *messages.Message) error {
 
 }
 
-// Checks for __at lest__ n number of arguments
+// Checks for __at least__ n number of arguments
 // Returns a function thats the traditional guard as expected by the runner.
-func HasArgs(expectedArgsNumber int) func(m *messages.Message) error {
+func HasArgs(atLeast int) func(m *messages.Message) error {
 	return func(m *messages.Message) error {
-		if expectedArgsNumber == 0 {
+		if atLeast == 0 {
 			return nil
 		}
 
-		if len(*m.Args) < expectedArgsNumber {
-			return fmt.Errorf("Comando esperava %d argumentos!", expectedArgsNumber)
+		if len(*m.Args) < atLeast {
+			return fmt.Errorf("Comando esperava %d argumentos!", atLeast)
 		}
 
 		return nil

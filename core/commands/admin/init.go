@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -123,5 +124,50 @@ func init() {
 		commands.IsBotAdmin,
 		commands.HasMentionedMembers,
 	)
+
+	commands.NewCommand("msg",
+		"Lista as mensagens enviadas por membros do grupo, ou membros sem mensagens", "admin",
+		&[]string{"lmsg", "mensagens"},
+		&[]string{
+			"${prefix}${alias} zero mostra membros com 0 mensgens",
+			"${prefix}${alias} limpar limpa as mensagens do grupo",
+			"${prefix}${alias} mostra as mensagens por membro"}, false, false, false, func(m *messages.Message) {
+			if m.Args != nil && len(*m.Args) > 0 {
+				text := strings.Join(*m.Args, " ")
+				switch text {
+				case "limpar":
+					if err := commands.IsAdmin(m); err != nil {
+						m.Reply(err.Error(), emojis.Fail)
+						return
+					}
+					PurgeMessages(m)
+					return
+				case "zero":
+					if err := commands.IsAdmin(m); err != nil {
+						m.Reply(err.Error(), emojis.Fail)
+						return
+					}
+					GetMembersZeroMessages(m)
+					return
+				}
+			}
+			MessagesPerMember(m)
+		}, commands.IsGroup)
+
+	commands.NewCommand("mute",
+		"Silencia membros mencionados", "admin", nil, &[]string{"${prefix}${alias} @user"},
+		false, false, false, MuteMember,
+		commands.HasMentionedMembers,
+		commands.IsGroup,
+		commands.IsAdmin,
+		commands.IsBotAdmin,
+	)
+
+	commands.NewCommand("unmute", "Deixa os membros falarem novamente", "admin", &[]string{"um"}, &[]string{"${prefix}${alias} @user"},
+		false, false, false,
+		UnmuteMember,
+		commands.HasMentionedMembers, commands.IsGroup, commands.IsAdmin)
+
+	commands.NewCommand("bug", "Reporta um bug", "misc", nil, nil, false, false, false, Bug, commands.HasArgs(1))
 
 }

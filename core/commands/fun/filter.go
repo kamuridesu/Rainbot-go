@@ -101,6 +101,12 @@ func ShowFilters(m *messages.Message) {
 		m.Reply(fmt.Sprintf("Erro ao ler filters: %s", err), emojis.Fail)
 		return
 	}
+
+	if len(filters) == 0 {
+		m.Reply("Nenhum filtro encontrado no chat.", emojis.Fail)
+		return
+	}
+
 	msg := ""
 	for i, filter := range filters {
 		msg += "- " + filter.Pattern

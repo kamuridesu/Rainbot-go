@@ -87,6 +87,12 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 		return nil, err
 	}
 	authorJid := v.Info.Sender.ToNonAD().String()
+	if !strings.Contains(authorJid, "@lid") {
+		authorJid = v.Info.SenderAlt.ToNonAD().String()
+		if !strings.Contains(authorJid, "@lid") {
+			panic("User id is not lid: " + authorJid)
+		}
+	}
 	member, err := bot.DB.Member.GetOrCreateMember(v.Info.Chat.String(), authorJid)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error fetching member info from db, err is: %v", err))
@@ -117,14 +123,16 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 	} else if rawMsg.ExtendedTextMessage != nil {
 		message.Type = TextMessage
 		messageText = rawMsg.ExtendedTextMessage.Text
-		mentionedJIDs = slices.Concat(mentionedJIDs, rawMsg.ExtendedTextMessage.ContextInfo.GetMentionedJID())
-		if rawMsg.ExtendedTextMessage.ContextInfo.Participant != nil {
-			mentionedJIDs = append(mentionedJIDs, *rawMsg.ExtendedTextMessage.ContextInfo.Participant)
-		}
-		if rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage != nil && quotedMessage == nil {
-			message.QuotedMessage, err = newMessage(ctx, bot, v, rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage)
-			if err != nil {
-				return nil, err
+		if rawMsg.ExtendedTextMessage.ContextInfo != nil {
+			mentionedJIDs = slices.Concat(mentionedJIDs, rawMsg.ExtendedTextMessage.ContextInfo.GetMentionedJID())
+			if rawMsg.ExtendedTextMessage.ContextInfo.Participant != nil {
+				mentionedJIDs = append(mentionedJIDs, *rawMsg.ExtendedTextMessage.ContextInfo.Participant)
+			}
+			if rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage != nil && quotedMessage == nil {
+				message.QuotedMessage, err = newMessage(ctx, bot, v, rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	} else if rawMsg.ImageMessage != nil {
@@ -158,6 +166,14 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 	mentionedJIDs = deduplicateMentions(mentionedJIDs)
 
 	for _, jid := range mentionedJIDs {
+		if strings.HasSuffix(jid, "whatsapp.net") {
+			j := types.NewJID(jid, v.Info.Chat.ADString())
+			j, err = bot.Client.Store.LIDs.GetLIDForPN(ctx, j)
+			if err != nil {
+				return nil, err
+			}
+			jid = j.ToNonAD().String()
+		}
 		m, err := bot.DB.Member.GetOrCreateMember(v.Info.Chat.String(), jid)
 		if err != nil {
 			return nil, err
@@ -170,7 +186,7 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 		messageText = &emptyMessage
 	} else {
 		noPrefix := strings.TrimPrefix(*messageText, chat.Prefix)
-		parts := strings.Fields(noPrefix)
+		parts := utils.ParseArgsFromMessage(noPrefix)
 		if len(parts) > 0 {
 			command := parts[0]
 			args := parts[1:]
@@ -189,11 +205,9 @@ func (m *Message) HasValidMedia(ignoreSticker ...bool) bool {
 		return m.Type == ImageMessage || m.Type == VideoMessage
 	}
 	return m.Type == ImageMessage || m.Type == VideoMessage || m.Type == StickerMessage
-
 }
 
 func (h *Handler) Handle(event any) {
-
 	if h.Bot == nil {
 		panic(fmt.Errorf("no bot instance attached to handler"))
 	}
@@ -202,7 +216,7 @@ func (h *Handler) Handle(event any) {
 
 	switch v := event.(type) {
 	case *events.Message:
-		if v.Info.IsFromMe {
+		if v.Info.Timestamp.Before(h.Bot.StartTime) || v.Info.IsFromMe || v.Info.Chat.String() == "status@broadcast" {
 			return
 		}
 		ctx, cancel := context.WithTimeout(h.Ctx, time.Minute)
@@ -231,10 +245,13 @@ func (h *Handler) Handle(event any) {
 				fmt.Println("Received message with prefix " + message.Chat.Prefix)
 				h.CommandHanler(message)
 			} else {
+				if message.Chat.CountMessages == 1 {
+					message.Author.Messages += 1
+					h.Bot.DB.Member.Update(message.Author)
+				}
 				h.ChatHandler(message)
 			}
 		}
-
 	}
 }
 

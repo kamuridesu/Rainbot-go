@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -145,9 +146,7 @@ func MentionMembers(m *messages.Message) {
 		m.Reply(fmt.Sprintf("Falha ao enviar mensagem: %s", err.Error()), emojis.Fail)
 		return
 	}
-
 	m.React(emojis.Success)
-
 }
 
 func changeUserAdminStatus(m *messages.Message, demote ...bool) error {
@@ -169,5 +168,90 @@ func changeUserAdminStatus(m *messages.Message, demote ...bool) error {
 	m.Bot.Client.UpdateGroupParticipants(m.RawEvent.Info.Chat, usersToPromote, action)
 
 	return nil
+
+}
+
+func MessagesPerMember(m *messages.Message) {
+	members, err := m.Bot.DB.Member.GetByChat(m.Chat.ChatID)
+	if err != nil {
+		m.Reply("Erro: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	slices.SortStableFunc(members, func(a, b *models.Member) int {
+		return b.Messages - a.Messages
+	})
+
+	msg := "Total de mensagens por membros: \n\n"
+
+	for i, member := range members {
+		if member.Messages == 0 {
+			continue
+		}
+		msg += fmt.Sprintf(`- %s: %d`, member.JID, member.Messages)
+		if i < len(members)-1 {
+			msg += "\n"
+		}
+	}
+
+	m.Reply(msg, emojis.Success)
+}
+
+func PurgeMessages(m *messages.Message) {
+	members, err := m.Bot.DB.Member.GetByChat(m.Chat.ChatID)
+	if err != nil {
+		m.Reply("Erro: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	for _, member := range members {
+		member.Messages = 0
+		m.Bot.DB.Member.Update(member)
+	}
+
+	m.React(emojis.Success)
+}
+
+func GetMembersZeroMessages(m *messages.Message) {
+	members, err := m.Bot.DB.Member.GetByChat(m.Chat.ChatID)
+	if err != nil {
+		m.Reply("Erro: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	msg := "Membros com 0 mensagens: \n\n"
+
+	for i, member := range members {
+		if member.Messages > 0 {
+			continue
+		}
+		msg += fmt.Sprintf(`- %s`, member.JID)
+		if i < len(members)-1 {
+			msg += "\n"
+		}
+	}
+
+	m.Reply(msg, emojis.Success)
+}
+
+func MuteMember(m *messages.Message) {
+
+	for _, member := range m.MentionedMembers {
+		member.Silenced = 1
+		m.Bot.DB.Member.Update(member)
+	}
+
+	m.React(emojis.Success)
+
+}
+
+func UnmuteMember(m *messages.Message) {
+
+	for _, member := range m.MentionedMembers {
+		member.Silenced = 0
+		m.Bot.DB.Member.Update(member)
+	}
+
+	m.React(emojis.Success)
 
 }

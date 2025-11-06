@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/internal/database"
 	_ "github.com/mattn/go-sqlite3"
@@ -15,9 +16,11 @@ import (
 )
 
 type Bot struct {
-	Name   *string
-	Client *whatsmeow.Client
-	DB     *database.DatabaseSingleton
+	Name          *string
+	Client        *whatsmeow.Client
+	DB            *database.DatabaseSingleton
+	StartTime     time.Time
+	CreatorNumber *string
 }
 
 type Handler interface {
@@ -40,6 +43,7 @@ func New(ctx context.Context, name, sqlDialact, dbAddress string, handler Handle
 
 	clientLog := waLog.Stdout("Client", "INFO", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
+	client.ManualHistorySyncDownload = true
 
 	slog.Info("Starting new client")
 	if client.Store.ID == nil {
@@ -62,10 +66,18 @@ func New(ctx context.Context, name, sqlDialact, dbAddress string, handler Handle
 			return nil, err
 		}
 	}
+	tmpc := os.Getenv("CREATOR_NUMBER")
+	creatorN := &tmpc
+	if tmpc == "" {
+		creatorN = nil
+	}
+
 	bot := Bot{
-		Name:   &name,
-		Client: client,
-		DB:     singleton,
+		Name:          &name,
+		Client:        client,
+		DB:            singleton,
+		StartTime:     time.Now(),
+		CreatorNumber: creatorN,
 	}
 	client.AddEventHandler(handler.Handle)
 	handler.AttachBot(&bot)

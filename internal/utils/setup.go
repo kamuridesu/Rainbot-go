@@ -23,9 +23,8 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func ParseSetupText(text string, chat *models.Chat, chatService *services.ChatService) error {
-
-	for index, line := range strings.Split(text, "\n") {
+func ParseSetupText(args []string, chat *models.Chat, chatService *services.ChatService) error {
+	for index, line := range args {
 		data := strings.Split(line, "=")
 		if len(data) != 2 {
 			return fmt.Errorf("falha ao processar configuração na linha %d", index)

@@ -1,6 +1,9 @@
 package services
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/database/repositories"
 )
@@ -23,6 +26,9 @@ func (s *MemberService) GetOrCreateMember(chatJid, memberJid string) (*models.Me
 		return member, nil
 	}
 
+	if !strings.HasSuffix(memberJid, "@lid") {
+		return nil, fmt.Errorf("invalid user id: %s", memberJid)
+	}
 	if err := s.repo.Create(chatJid, memberJid); err != nil {
 		return nil, err
 	}
@@ -43,4 +49,8 @@ func (s *MemberService) Update(member *models.Member) error {
 
 func (s *MemberService) Close() error {
 	return s.repo.Close()
+}
+
+func (s *MemberService) GetByChat(chatJid string) ([]*models.Member, error) {
+	return s.repo.GetAllByChat(chatJid)
 }

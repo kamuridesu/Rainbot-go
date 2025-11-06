@@ -41,7 +41,7 @@ func init() {
 		commandOrCategory := strings.Join(args, " ")
 		command, err := FindCommand(commandOrCategory)
 		if err == nil {
-			text := formatCommandHelp(command, "/", commandOrCategory)
+			text := formatCommandHelp(command, msg.Chat.Prefix, commandOrCategory)
 			msg.Reply(text)
 		} else {
 			menu := dynamicMenu(commandOrCategory, msg.Bot)
