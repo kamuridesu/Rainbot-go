@@ -4,8 +4,13 @@ ARG TARGETARCH
 
 RUN apk add --no-cache curl tar xz
 
-RUN echo "Downloading for architecture: ${TARGETARCH}" && \
-    curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${TARGETARCH}-static.tar.xz" | \
+RUN case "$(uname -m)" in \
+      x86_64) ARCH=amd64 ;; \
+      aarch64) ARCH=arm64 ;; \
+      *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;; \
+    esac && \
+    echo "Detected system architecture: $(uname -m) -> Downloading FFmpeg for: $ARCH" && \
+    curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${ARCH}-static.tar.xz" | \
     tar -xJ --no-same-owner --no-same-permissions && \
     mv ffmpeg-*-static/ffmpeg /usr/local/bin/ffmpeg && \
     mv ffmpeg-*-static/ffprobe /usr/local/bin/ffprobe && \
