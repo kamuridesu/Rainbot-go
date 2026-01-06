@@ -50,9 +50,10 @@ func NewS3FileStorage() FileStorage {
 
 func (s *S3FileStorage) Write(ctx context.Context, filename string, data []byte) error {
 	input := &s3.PutObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(filename),
-		Body:   bytes.NewReader(data),
+		Bucket:        aws.String(s.bucket),
+		Key:           aws.String(filename),
+		Body:          bytes.NewReader(data),
+		ContentLength: aws.Int64(int64(len(data))),
 	}
 
 	_, err := s.svc.PutObject(ctx, input)
