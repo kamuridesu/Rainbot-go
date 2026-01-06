@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -41,6 +42,7 @@ func NewS3FileStorage() FileStorage {
 			o.BaseEndpoint = aws.String(endpoint)
 			o.UsePathStyle = true
 		}
+		o.APIOptions = append(o.APIOptions, v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware)
 	})
 	_s3Singleton = &S3FileStorage{svc: svc, bucket: bucket}
 	return _s3Singleton
