@@ -11,10 +11,8 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
 
-// ffmpeg -i image.jpg -vcodec libwebp -vf "scale='min(320,iw)':'min(320,ih)':force_original_aspect_ratio=decrease,fps=23,pad=320:320:-1:-1:color=white@0.0,split[a][b];[a]palettegen=reserve_transparent=on:transparency_color=ffffff[p];[b][p]paletteuse" -f webp output.webp
-
 func ExecFFMpreg(input string) ([]byte, error) {
-	output := fmt.Sprintf("%s-new.webp", input) // Add .webp extension
+	output := fmt.Sprintf("%s-new.webp", input)
 	defer DeleteTmpFile(output)
 
 	vf := `scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=white@0.0,fps=20`
@@ -124,7 +122,7 @@ func (s *Sticker) addMetadata(content []byte) ([]byte, error) {
 }
 
 func (s *Sticker) Convert() ([]byte, error) {
-	slog.Info("Starting convertionD")
+	slog.Info("Starting convertion")
 	file, err := CreateTempFile(s.Data)
 	if err != nil {
 		return nil, err

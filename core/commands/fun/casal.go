@@ -15,7 +15,7 @@ import (
 
 func Casal(m *messages.Message) {
 
-	info, err := m.Bot.Client.GetGroupInfo(m.RawEvent.Info.Chat)
+	info, err := m.Bot.Client.GetGroupInfo(m.Ctx, m.RawEvent.Info.Chat)
 	if err != nil {
 		slog.Error(err.Error())
 		m.Reply("houve um erro ao processar: "+err.Error(), emojis.Fail)

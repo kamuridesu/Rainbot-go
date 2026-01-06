@@ -8,9 +8,11 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
+	"github.com/kamuridesu/rainbot-go/internal/utils"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
+	"google.golang.org/protobuf/proto"
 )
 
 func banUser(m *messages.Message, users []*models.Member) (string, error) {
@@ -24,17 +26,17 @@ func banUser(m *messages.Message, users []*models.Member) (string, error) {
 			return "", fmt.Errorf("Erro ao processar membros, erro é: %s", err.Error())
 		}
 		JIDs = append(JIDs, jid)
-		message += "User " + member.JID + " removido!\n"
+		message += "User " + utils.ParseLidToMention(member.JID) + " removido!\n"
 	}
 
 	message = strings.TrimSpace(message)
 
-	_, err := m.Bot.Client.UpdateGroupParticipants(m.RawEvent.Info.Chat, JIDs, whatsmeow.ParticipantChangeRemove)
+	_, err := m.Bot.Client.UpdateGroupParticipants(m.Ctx, m.RawEvent.Info.Chat, JIDs, whatsmeow.ParticipantChangeRemove)
 	if err != nil {
 		return "", err
 	}
 
-	_, err = m.Bot.Client.GetGroupInfo(m.RawEvent.Info.Chat)
+	_, err = m.Bot.Client.GetGroupInfo(m.Ctx, m.RawEvent.Info.Chat)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +69,7 @@ func WarnUser(m *messages.Message) {
 			toBeBanned = append(toBeBanned, user)
 			user.Warns = 0
 		} else {
-			message += fmt.Sprintf("User %s tem %d avisos, mais %d e será banido!\n", user.JID, user.Warns, m.Chat.WarnBanThreshold-user.Warns)
+			message += fmt.Sprintf("User %s tem %d avisos, mais %d e será banido!\n", utils.ParseLidToMention(user.JID), user.Warns, m.Chat.WarnBanThreshold-user.Warns)
 
 		}
 		m.Bot.DB.Member.Update(user)
@@ -98,7 +100,7 @@ func RemoveUserWarn(m *messages.Message) {
 		}
 		user.Warns--
 		m.Bot.DB.Member.Update(user)
-		message += fmt.Sprintf("Aviso removido, agora %s tem %d avisos.", user.JID, user.Warns)
+		message += fmt.Sprintf("Aviso removido, agora %s tem %d avisos.", utils.ParseLidToMention(user.JID), user.Warns)
 	}
 
 	m.Reply(message, emojis.Success)
@@ -114,7 +116,7 @@ func MentionMembers(m *messages.Message) {
 	}
 
 	if message == "" && m.RawEvent.Message.ExtendedTextMessage != nil && m.RawEvent.Message.ExtendedTextMessage.ContextInfo.QuotedMessage != nil {
-		message = *m.RawEvent.Message.ExtendedTextMessage.ContextInfo.QuotedMessage.Conversation
+		message = *m.QuotedMessage.Text
 	}
 
 	if message == "" {
@@ -122,7 +124,7 @@ func MentionMembers(m *messages.Message) {
 		return
 	}
 
-	group, err := m.Bot.Client.GetGroupInfo(m.RawEvent.Info.Chat)
+	group, err := m.Bot.Client.GetGroupInfo(m.Ctx, m.RawEvent.Info.Chat)
 	if err != nil {
 		m.Reply(fmt.Sprintf("Houve um erro ao processar dados do grupo: %s\n", err.Error()))
 		return
@@ -138,6 +140,11 @@ func MentionMembers(m *messages.Message) {
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
 			Text: &message,
 			ContextInfo: &waE2E.ContextInfo{
+				StanzaID:    proto.String(m.RawEvent.Info.ID),
+				Participant: proto.String(m.RawEvent.Info.Sender.String()),
+				QuotedMessage: &waE2E.Message{
+					Conversation: proto.String(*m.Text),
+				},
 				MentionedJID: jids,
 			},
 		},
@@ -165,7 +172,7 @@ func changeUserAdminStatus(m *messages.Message, demote ...bool) error {
 	if demote != nil && demote[0] {
 		action = whatsmeow.ParticipantChangeDemote
 	}
-	m.Bot.Client.UpdateGroupParticipants(m.RawEvent.Info.Chat, usersToPromote, action)
+	m.Bot.Client.UpdateGroupParticipants(m.Ctx, m.RawEvent.Info.Chat, usersToPromote, action)
 
 	return nil
 

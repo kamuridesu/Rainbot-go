@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
-	"github.com/kamuridesu/rainbot-go/core/sticker"
+	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 )
 
@@ -32,7 +32,7 @@ func NewSticker(m *messages.Message) {
 	var err error
 	contentType := m.Type
 
-	m.React(emojis.Searching)
+	m.React(emojis.Waiting)
 
 	slog.Info("Downloading sticker")
 	if m.HasValidMedia(true) {

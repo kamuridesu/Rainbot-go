@@ -171,6 +171,6 @@ func init() {
 	commands.NewCommand("bug", "Reporta um bug", "misc", nil, nil, false, false, false, Bug, commands.HasArgs(1))
 	commands.NewCommand("transmitir",
 		"Transmite uma mensagem",
-		"misc", nil, nil, false, false, false, Broadcast, commands.HasArgs(2))
+		"misc", &[]string{"bc", "broadcast"}, nil, false, false, false, Broadcast, commands.HasArgs(2))
 
 }

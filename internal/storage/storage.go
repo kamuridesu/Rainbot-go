@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"context"
 	"errors"
-	"log/slog"
 	"math/rand/v2"
 	"os"
 )
@@ -15,40 +15,10 @@ var (
 )
 
 type FileStorage interface {
-	Exists(filename string) (bool, error)
-	Delete(filename string) error
-	Read(filename string) ([]byte, error)
-	Write(filename string, data []byte) error
-}
-
-type LocalFileStorage struct{}
-
-func NewLocalFileStorage() FileStorage {
-	return &LocalFileStorage{}
-}
-
-func (s *LocalFileStorage) Write(filename string, data []byte) error {
-	slog.Info("writing file")
-	return os.WriteFile(filename, data, 0644)
-}
-
-func (s *LocalFileStorage) Delete(filename string) error {
-	return os.Remove(filename)
-}
-
-func (s *LocalFileStorage) Exists(filename string) (bool, error) {
-	_, err := os.Stat(filename)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, ErrNotExists
-	}
-	return false, err
-}
-
-func (s *LocalFileStorage) Read(filename string) ([]byte, error) {
-	return os.ReadFile(filename)
+	Exists(ctx context.Context, filename string) (bool, error)
+	Delete(ctx context.Context, filename string) error
+	Read(ctx context.Context, filename string) ([]byte, error)
+	Write(ctx context.Context, filename string, data []byte) error
 }
 
 type OpenFileMode string
@@ -64,6 +34,8 @@ func NewStorage() FileStorage {
 	switch storageType {
 	case "LOCAL":
 		return NewLocalFileStorage()
+	case "S3":
+		return NewS3FileStorage()
 	default:
 		return NewLocalFileStorage()
 	}
@@ -96,37 +68,37 @@ func NewFile(filename string, mode ...OpenFileMode) *File {
 	}
 }
 
-func (f *File) Read() ([]byte, error) {
-	_, err := f.storage.Exists(f.Name)
+func (f *File) Read(ctx context.Context) ([]byte, error) {
+	_, err := f.storage.Exists(ctx, f.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return f.storage.Read(f.Name)
+	return f.storage.Read(ctx, f.Name)
 }
 
-func (f *File) Delete() error {
-	return f.storage.Delete(f.Name)
+func (f *File) Delete(ctx context.Context) error {
+	return f.storage.Delete(ctx, f.Name)
 }
 
-func (f *File) Write(data []byte) error {
+func (f *File) Write(ctx context.Context, data []byte) error {
 	if f.mode == ModeReadOnly {
 		return ErrReadOnly
 	}
 	if f.mode == ModeAppend {
-		content, err := f.storage.Read(f.Name)
+		content, err := f.storage.Read(ctx, f.Name)
 		if err != nil {
 			return err
 		}
 		data = append(content, data...)
 	}
-	return f.storage.Write(f.Name, data)
+	return f.storage.Write(ctx, f.Name, data)
 }
 
-func (f *File) WriteString(data string) error {
-	return f.Write([]byte(data))
+func (f *File) WriteString(ctx context.Context, data string) error {
+	return f.Write(ctx, []byte(data))
 }
 
-func (f *File) Exists() (bool, error) {
-	return f.storage.Exists(f.Name)
+func (f *File) Exists(ctx context.Context) (bool, error) {
+	return f.storage.Exists(ctx, f.Name)
 }

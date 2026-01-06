@@ -1,6 +1,8 @@
 package fun
 
 import (
+	"log/slog"
+	"net/http"
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -29,6 +31,8 @@ func DownloadAudio(m *messages.Message) {
 		m.Reply("Erro ao baixar: "+err.Error(), emojis.Fail)
 		return
 	}
+
+	slog.Info("mime: " + http.DetectContentType(res.Blob))
 
 	m.ReplyMedia(res.Blob, res.Filename, messages.AudioMessage, emojis.Success)
 }

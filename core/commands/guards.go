@@ -20,7 +20,7 @@ func IsAdmin(m *messages.Message) error {
 		return err
 	}
 
-	gInfo, err := m.Bot.Client.GetGroupInfo(m.RawEvent.Info.Chat)
+	gInfo, err := m.Bot.Client.GetGroupInfo(m.Ctx, m.RawEvent.Info.Chat)
 	if err != nil {
 		return errors.New("Algum erro ocorreu: " + err.Error())
 	}
@@ -38,7 +38,7 @@ func IsBotAdmin(m *messages.Message) error {
 
 	botJid := m.Bot.Client.Store.GetLID().ToNonAD().String()
 
-	gInfo, err := m.Bot.Client.GetGroupInfo(m.RawEvent.Info.Chat)
+	gInfo, err := m.Bot.Client.GetGroupInfo(m.Ctx, m.RawEvent.Info.Chat)
 	if err != nil {
 		return errors.New("Algum erro ocorreu: " + err.Error())
 	}
@@ -63,8 +63,8 @@ func HasMentionedMembers(m *messages.Message) error {
 
 }
 
-// Checks for __at least__ n number of arguments if atMax_ is empty or false
-// Returns a function thats the traditional guard as expected by the runner.
+// Checks for __at least__ n number of arguments if __atMax__ is empty or false
+// Returns a guard function as expected by the runner.
 func HasArgs(numberOfArgs int, atMax_ ...bool) func(m *messages.Message) error {
 	atMax := false
 	if len(atMax_) > 0 {

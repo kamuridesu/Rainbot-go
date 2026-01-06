@@ -203,9 +203,16 @@ func DownloadMediaCobalt(ctx context.Context, mediaUrl string, mediaType MediaTy
 	if filename == "" {
 		ext := "mp4"
 		if mediaType == MediaAudio {
-			ext = "mp3"
+			ext = "ogg"
 		}
 		filename = "media." + ext
+	}
+
+	if mediaType == MediaAudio {
+		body, err = ConvertAudioToOgg(body)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &CobaltResult{

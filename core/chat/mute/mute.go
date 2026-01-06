@@ -6,7 +6,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/messages"
 )
 
-func DeleteIfMuted(m *messages.Message) {
+func DeleteIfMuted(m *messages.Message) bool {
 
 	if m.Author.Silenced == 1 {
 
@@ -15,7 +15,10 @@ func DeleteIfMuted(m *messages.Message) {
 		if err != nil {
 			slog.Error("Error while deleting message: " + err.Error())
 		}
+		return true
 
 	}
+
+	return false
 
 }

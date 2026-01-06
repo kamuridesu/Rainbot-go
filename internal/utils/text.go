@@ -10,6 +10,11 @@ type MentionMessage struct {
 	Mention []string
 }
 
+func ParseLidToMention(lid string) string {
+	s := strings.Split(lid, "@")[0]
+	return "@" + s
+}
+
 func GenerateMentionFromText(text string) *MentionMessage {
 
 	re := regexp.MustCompile(`@(\d+)`)

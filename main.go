@@ -13,14 +13,30 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
 	"github.com/kamuridesu/rainbot-go/internal/database"
+	"github.com/kamuridesu/rainbot-go/internal/utils"
 
 	_ "github.com/kamuridesu/rainbot-go/core/commands/admin"
 	_ "github.com/kamuridesu/rainbot-go/core/commands/fun"
-	_ "github.com/kamuridesu/rainbot-go/core/commands/test"
 )
 
+func init() {
+	utils.ReadDotEnv()
+
+	slog.Info("Starting migrations...")
+	utils.Migrate()
+	slog.Info("All migrations have finished!")
+}
+
 func main() {
-	singleton, err := database.InitDatabaseSingleton("sqlite3", "test.db")
+
+	defer func() {
+		if p := recover(); p != nil {
+			slog.Error(fmt.Sprintf("Fatal error: %v", p))
+			os.Exit(1)
+		}
+	}()
+
+	singleton, err := database.InitDatabaseSingleton(os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"))
 	if err != nil {
 		panic(err)
 	}
@@ -28,15 +44,15 @@ func main() {
 
 	ctx := context.Background()
 
-	slog.Info(fmt.Sprintf("FOund %d commands", len(*commands.GetLoadedCommands())))
-
-	for _, command := range *commands.GetLoadedCommands() {
-		slog.Info("Command: " + command.Name)
-	}
+	slog.Info(fmt.Sprintf("Found %d commands", len(*commands.GetLoadedCommands())))
 
 	handler := messages.NewHandler(ctx, commands.RunCommand, chat.ChatHandler)
+	botName := os.Getenv("BOT_NAME")
+	if botName == "" {
+		botName = "teto"
+	}
 
-	bot, err := b.New(ctx, "Teto", "sqlite3", "file:examplestore.db?_foreign_keys=on", handler, singleton)
+	bot, err := b.New(ctx, botName, os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"), handler, singleton)
 	if err != nil {
 		panic(err)
 	}

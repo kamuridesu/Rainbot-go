@@ -49,10 +49,10 @@ type Message struct {
 }
 
 type Handler struct {
-	Ctx           context.Context
-	Bot           *bot.Bot
-	CommandHanler func(*Message)
-	ChatHandler   func(*Message)
+	Ctx            context.Context
+	Bot            *bot.Bot
+	CommandHandler func(*Message)
+	ChatHandler    func(*Message)
 }
 
 func NewHandler(ctx context.Context, commandHandler, chatHandler func(*Message)) *Handler {
@@ -131,6 +131,7 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 			if rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage != nil && quotedMessage == nil {
 				message.QuotedMessage, err = newMessage(ctx, bot, v, rawMsg.ExtendedTextMessage.ContextInfo.QuotedMessage)
 				if err != nil {
+					slog.Error("error parsing quoted message")
 					return nil, err
 				}
 			}
@@ -167,7 +168,8 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 
 	for _, jid := range mentionedJIDs {
 		if strings.HasSuffix(jid, "whatsapp.net") {
-			j := types.NewJID(jid, v.Info.Chat.ADString())
+			j := types.NewJID(strings.TrimSuffix(jid, "@s.whatsapp.net"), types.DefaultUserServer)
+
 			j, err = bot.Client.Store.LIDs.GetLIDForPN(ctx, j)
 			if err != nil {
 				return nil, err
@@ -212,45 +214,83 @@ func (h *Handler) Handle(event any) {
 		panic(fmt.Errorf("no bot instance attached to handler"))
 	}
 
-	slog.Info(fmt.Sprintf("Event: %v", event))
-
+	// slog.Info(fmt.Sprintf("Event: %v", event))
 	switch v := event.(type) {
 	case *events.Message:
 		if v.Info.Timestamp.Before(h.Bot.StartTime) || v.Info.IsFromMe || v.Info.Chat.String() == "status@broadcast" {
 			return
 		}
-		ctx, cancel := context.WithTimeout(h.Ctx, time.Minute)
-		defer cancel()
-		fmt.Println("=============== Received a message! =====================")
-		fmt.Println("Chat info: ")
-		fmt.Printf("Chat id: %s\n", v.Info.Chat.String())
-		fmt.Println("Sender Info: ")
-		fmt.Printf("User: %s\n", v.Info.Sender.SignalAddress().Name())
-		fmt.Printf("New ID: %s\n", v.Info.Sender.String())
-		fmt.Printf("Old ID: %s\n", v.Info.SenderAlt.String())
-		fmt.Println("Message Info: ")
 
-		if v.Message.ExtendedTextMessage != nil {
-			fmt.Printf("Mentions: %s\n", v.Message.ExtendedTextMessage.ContextInfo.GetMentionedJID())
-		}
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
 
-		message, err := newMessage(ctx, h.Bot, v, nil)
-		if err != nil {
-			slog.Error("error parsing message, err is: " + err.Error())
-			return
-		}
+			// 		fmt.Println("=============== Received a message! =====================")
+			// 		fmt.Println("Chat info: ")
+			// 		fmt.Printf("Chat id: %s\n", v.Info.Chat.String())
+			// 		fmt.Println("Sender Info: ")
+			// 		fmt.Printf("User: %s\n", v.Info.Sender.SignalAddress().Name())
+			// 		fmt.Printf("New ID: %s\n", v.Info.Sender.String())
+			// 		fmt.Printf("Old ID: %s\n", v.Info.SenderAlt.String())
+			// 		fmt.Printf("Chat AD: %s\n", v.Info.Sender.ADString())
+			// 		fmt.Println("Message Info: ")
+			//
+			// 		if v.Message.ExtendedTextMessage != nil {
+			// 			fmt.Printf("Mentions: %s\n", v.Message.ExtendedTextMessage.ContextInfo.GetMentionedJID())
+			// 		}
 
-		if message.Text != nil {
-			if strings.HasPrefix(*message.Text, message.Chat.Prefix) {
-				fmt.Println("Received message with prefix " + message.Chat.Prefix)
-				h.CommandHanler(message)
-			} else {
-				if message.Chat.CountMessages == 1 {
-					message.Author.Messages += 1
-					h.Bot.DB.Member.Update(message.Author)
-				}
-				h.ChatHandler(message)
+			message, err := newMessage(ctx, h.Bot, v, nil)
+			if err != nil {
+				slog.Error("error parsing message, err is: " + err.Error())
+				return
 			}
+
+			if message.Chat.IsBotEnabled == 0 {
+				if !(strings.HasPrefix(*message.Text, message.Chat.Prefix) && (*message.Command == "setup")) {
+					return
+				}
+			}
+
+			if message.Text != nil {
+				if strings.HasPrefix(*message.Text, message.Chat.Prefix) && !(message.Author.Silenced == 1) && message.Command != nil {
+					slog.Info("Received message with prefix " + message.Chat.Prefix)
+					h.CommandHandler(message)
+				} else {
+					if message.Chat.CountMessages == 1 && !(message.Author.Silenced == 1) {
+						message.Author.Messages += 1
+						h.Bot.DB.Member.Update(message.Author)
+					}
+					h.ChatHandler(message)
+				}
+			}
+		}()
+	case *events.GroupInfo:
+		if len(v.Join) > 0 {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				chatInfo, err := h.Bot.DB.Chat.GetOrCreateChat(v.JID.String())
+				if err != nil {
+					slog.Error(err.Error())
+					return
+				}
+				if chatInfo.WelcomeMessage == "" {
+					return
+				}
+				var usrs []string
+				for _, usr := range v.Join {
+					usrs = append(usrs, utils.ParseLidToMention(usr.ToNonAD().String()))
+				}
+				msg := utils.GenerateMentionFromText(strings.Replace(chatInfo.WelcomeMessage, "@users", strings.Join(usrs, ", "), 1))
+				h.Bot.Client.SendMessage(ctx, v.JID, &waE2E.Message{
+					ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+						Text: &msg.Text,
+						ContextInfo: &waE2E.ContextInfo{
+							MentionedJID: msg.Mention,
+						},
+					},
+				})
+			}()
 		}
 	}
 }
@@ -410,14 +450,16 @@ func (m *Message) SendAudioMessage(media []byte, chatId types.JID, quotedMessage
 	}
 	message := &waE2E.Message{
 		AudioMessage: &waE2E.AudioMessage{
-			Mimetype:      proto.String("audio/ogg; codecs=opus"),
-			URL:           &resp.URL,
-			DirectPath:    &resp.DirectPath,
-			MediaKey:      resp.MediaKey,
-			FileEncSHA256: resp.FileEncSHA256,
-			FileSHA256:    resp.FileSHA256,
-			FileLength:    &resp.FileLength,
-			ContextInfo:   quoted,
+			URL:               proto.String(resp.URL),
+			DirectPath:        proto.String(resp.DirectPath),
+			MediaKey:          resp.MediaKey,
+			Mimetype:          proto.String("application/ogg"),
+			FileEncSHA256:     resp.FileEncSHA256,
+			FileSHA256:        resp.FileSHA256,
+			FileLength:        proto.Uint64(resp.FileLength),
+			ContextInfo:       quoted,
+			StreamingSidecar:  resp.FileSHA256,
+			MediaKeyTimestamp: proto.Int64(time.Now().Unix()),
 		},
 	}
 	slog.Info("Sending media message")

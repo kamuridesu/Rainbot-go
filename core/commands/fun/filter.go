@@ -70,7 +70,7 @@ func NewFilter(m *messages.Message) {
 		}
 		if filename != "" {
 			file := storage.NewFile(filename)
-			err := file.Write(bytes)
+			err := file.Write(m.Ctx, bytes)
 			if err != nil {
 				m.Reply(fmt.Sprintf("Erro ao salvar arquivo: %s", err), emojis.Fail)
 				return

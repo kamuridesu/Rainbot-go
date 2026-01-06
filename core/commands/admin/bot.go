@@ -1,10 +1,13 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
@@ -51,7 +54,6 @@ func Bug(m *messages.Message) {
 }
 
 func Broadcast(m *messages.Message) {
-
 	bcPasswd := os.Getenv("BROADCAST_PASSWORD")
 	if bcPasswd == "" {
 		m.Reply("Nenhuma senha configurada.", emojis.Fail)
@@ -59,12 +61,13 @@ func Broadcast(m *messages.Message) {
 	}
 
 	passwd := (*m.Args)[0]
-	message := "Transmissão: \n\n" + strings.Join((*m.Args)[1:], " ")
 
 	if passwd != bcPasswd {
 		m.Reply("Senha invalida.", emojis.Fail)
 		return
 	}
+
+	messageContent := "Transmissão: \n\n" + strings.Join((*m.Args)[1:], " ")
 
 	groups, err := m.Bot.Client.GetJoinedGroups(m.Ctx)
 	if err != nil {
@@ -72,15 +75,25 @@ func Broadcast(m *messages.Message) {
 		return
 	}
 
-	for _, group := range groups {
-		msg := &waE2E.Message{
-			Conversation: &message,
-		}
-		_, err := m.SendMessage(msg, group.JID)
-		if err != nil {
-			slog.Error(err.Error())
-			continue
-		}
-	}
+	m.Reply(fmt.Sprintf("Iniciando transmissão para %d grupos (em background).", len(groups)), emojis.Success)
 
+	go func() {
+
+		for i, group := range groups {
+			sleepDuration := time.Duration(rand.Intn(9)+2) * time.Second
+			time.Sleep(sleepDuration)
+
+			msg := &waE2E.Message{
+				Conversation: &messageContent,
+			}
+
+			_, err := m.Bot.Client.SendMessage(context.Background(), group.JID, msg)
+			if err != nil {
+				slog.Error("Failed to broadcast", "group", group.JID, "error", err)
+				continue
+			}
+
+			slog.Info("Broadcast sent", "group", group.JID, "progress", fmt.Sprintf("%d/%d", i+1, len(groups)))
+		}
+	}()
 }

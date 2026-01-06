@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -61,7 +62,7 @@ func ParseSetupText(args []string, chat *models.Chat, chatService *services.Chat
 			}
 			chat.ProfanityFilterEnabled = boolToInt(value == "sim")
 		case "boasVindas":
-			chat.WelcomeMessage = value
+			chat.WelcomeMessage = data[1]
 		case "contarMensagens":
 			if err := validateBool(value, index); err != nil {
 				return err
@@ -82,6 +83,8 @@ func ParseSetupText(args []string, chat *models.Chat, chatService *services.Chat
 				return err
 			}
 			chat.AllowAdults = boolToInt(value == "sim")
+		default:
+			return errors.New("Opção não reconhecida: " + key)
 		}
 	}
 

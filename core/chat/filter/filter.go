@@ -13,7 +13,7 @@ import (
 
 func replyMedia(m *messages.Message, filter *models.Filter) error {
 	file := storage.NewFile(filter.Response, storage.ModeReadOnly)
-	bytes, err := file.Read()
+	bytes, err := file.Read(m.Ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotExists) {
 			slog.Error(fmt.Sprintf("File %s does not exists", file.Name))

@@ -3,6 +3,7 @@ package providers
 import (
 	"database/sql"
 	"log/slog"
+	"slices"
 	"strconv"
 
 	_ "github.com/lib/pq"
@@ -38,6 +39,10 @@ func (d *Database) GetQuery(query string) string {
 }
 
 func InitDB(driver, parameters string) (*Database, error) {
+	if !slices.Contains([]string{"sqlite3", "postgres"}, driver) {
+		panic("Only supported databases are sqlite3 and postgres")
+	}
+
 	db, err := sql.Open(driver, parameters)
 	if err != nil {
 		return nil, err

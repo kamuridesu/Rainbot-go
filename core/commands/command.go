@@ -207,6 +207,11 @@ func dynamicMenu(category string, bot *bot.Bot) string {
 
 func RunCommand(msg *m.Message) {
 	slog.Info(fmt.Sprintf("Received command: %s", *msg.Command))
+
+	if (msg.Chat.AdminOnly == 1) && (IsAdmin(msg) != nil) {
+		return
+	}
+
 	cmd, err := FindCommand(*msg.Command)
 	if err != nil {
 		fmt.Println(err)
@@ -217,8 +222,6 @@ func RunCommand(msg *m.Message) {
 		(cmd.IsFun && msg.Chat.AllowFun == 0) ||
 		(cmd.IsGame && msg.Chat.AllowGames == 0)
 
-	slog.Info(fmt.Sprintf("Is frim group: %v", msg.IsFromGroup()))
-	slog.Info(fmt.Sprintf("is blocked: %v", isBlocked))
 	if msg.IsFromGroup() && isBlocked {
 		msg.Reply("Comando não pode ser usado neste grupo.", emojis.Fail)
 		return

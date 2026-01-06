@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/database/providers"
@@ -41,6 +43,9 @@ func (r *memberRepository) FindByChatAndId(chatJid, memberJid string) (*models.M
 		}
 		return nil, err
 	}
+	if strings.HasSuffix(member.JID, "s.whatsapp.net") {
+		return nil, fmt.Errorf("Member has old ID: %s", member.JID)
+	}
 	return &member, nil
 }
 
@@ -70,6 +75,9 @@ func (r *memberRepository) GetAllByChat(chatJid string) ([]*models.Member, error
 		var member models.Member
 		if err := rows.Scan(&member.ChatID, &member.JID, &member.Messages, &member.Points, &member.Warns, &member.Silenced); err != nil {
 			return nil, err
+		}
+		if strings.HasSuffix(member.JID, "s.whatsapp.net") {
+			continue
 		}
 		members = append(members, &member)
 	}

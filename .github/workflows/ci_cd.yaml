@@ -1,0 +1,75 @@
+name: push changes
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - created
+
+env:
+  IMAGE_NAME: rainbot
+  CURRENT_TAG: ${{ github.event.release.tag_name }}
+  IMAGE_TAGS: latest ${{ github.sha }} ${{ github.event.release.tag_name }}
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  IMAGE_PLATFORMS: linux/amd64, linux/arm64
+  REGISTRY_USER: ${{ github.actor }}
+  REGISTRY_PASSWORD: ${{ github.token }}
+  VALUES_REPO: ${{ secrets.VALUES_REPO }}
+  VALUES_FILE_PATH: ${{ secrets.VALUES_FILE_PATH }}
+  DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+permissions:
+  packages: write
+
+jobs:
+  release-ghcr:
+    name: release ghcr
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - name: Build image
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ env.IMAGE_TAGS }}
+          platforms: ${{ env.IMAGE_PLATFORMS }}
+          containerfiles: |
+            ./Dockerfile
+
+      - name: Push to ghcr
+        id: push
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Echo outputs
+        run: |
+          echo "${{ toJSON(steps.push.outputs) }}"
+
+  deploy:
+    name: "notify cd repo"
+    runs-on: ubuntu-22.04
+    needs: release-ghcr
+
+    steps:
+      - name: trigger update in values repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: ${{ env.VALUES_REPO }}
+          token: ${{ env.DEPLOY_TOKEN }}
+          event-type: "update-version"
+          client-payload: >-
+            {
+              "version": "${{ env.CURRENT_TAG }}",
+              "image_name": "${{ env.IMAGE_NAME }}",
+              "file_path": "${{ env.VALUES_FILE_PATH }}"
+            }
