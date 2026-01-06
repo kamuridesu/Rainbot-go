@@ -6,7 +6,7 @@ RUN apk add --no-cache curl tar xz
 
 RUN echo "Downloading for architecture: ${TARGETARCH}" && \
     curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${TARGETARCH}-static.tar.xz" | \
-    tar -xJ --no-same-owner && \
+    tar -xJ --no-same-owner --no-same-permissions && \
     mv ffmpeg-*-static/ffmpeg /usr/local/bin/ffmpeg && \
     mv ffmpeg-*-static/ffprobe /usr/local/bin/ffprobe && \
     rm -rf ffmpeg-*-static
