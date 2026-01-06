@@ -4,11 +4,9 @@ ARG TARGETARCH
 
 RUN apk add --no-cache curl tar xz
 
-# 3. Download the correct binary using dynamic string interpolation
-# John Van Sickle naming convention: ffmpeg-release-amd64-static.tar.xz / ffmpeg-release-arm64-static.tar.xz
-# Luckily, Docker's "arm64" matches the filename exactly.
 RUN echo "Downloading for architecture: ${TARGETARCH}" && \
-    curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${TARGETARCH}-static.tar.xz" | tar -xJ && \
+    curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${TARGETARCH}-static.tar.xz" | \
+    tar -xJ --no-same-owner && \
     mv ffmpeg-*-static/ffmpeg /usr/local/bin/ffmpeg && \
     mv ffmpeg-*-static/ffprobe /usr/local/bin/ffprobe && \
     rm -rf ffmpeg-*-static
