@@ -42,6 +42,9 @@ func NewS3FileStorage() FileStorage {
 			o.BaseEndpoint = aws.String(endpoint)
 			o.UsePathStyle = true
 		}
+
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 		o.APIOptions = append(o.APIOptions, v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware)
 	})
 	_s3Singleton = &S3FileStorage{svc: svc, bucket: bucket}
