@@ -119,11 +119,34 @@ func ShowFilters(m *messages.Message) {
 }
 
 func DeleteFilter(m *messages.Message) {
+	filters, err := m.Bot.DB.Filter.GetFilters(m.Chat.ChatID)
+	if err != nil {
+		return
+	}
+
+	var foundFilter *models.Filter
+	for _, filter := range filters {
+		if *m.Text == filter.Pattern {
+			foundFilter = filter
+		}
+	}
+
+	if foundFilter == nil {
+		return
+	}
+
 	pattern := strings.Join(*m.Args, " ")
-	err := m.Bot.DB.Filter.Delete(m.Chat.ChatID, pattern)
+	err = m.Bot.DB.Filter.Delete(m.Chat.ChatID, pattern)
 	if err != nil {
 		m.Reply(fmt.Sprintf("Erro ao deleter filtro: %s", err), emojis.Fail)
 		return
+	}
+
+	if foundFilter.Kind != "text" {
+		file := storage.NewFile(foundFilter.Response)
+		if e := file.Delete(m.Ctx); e != nil {
+			m.Reply("Erro ao deletar arquivo do filtro", emojis.Fail)
+		}
 	}
 	m.React(emojis.Success)
 }
