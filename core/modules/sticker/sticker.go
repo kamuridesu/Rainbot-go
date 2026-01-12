@@ -11,6 +11,33 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
 
+func ExecFFmpregSquash(input string) ([]byte, error) {
+	output := fmt.Sprintf("%s-squash.webp", input)
+	defer DeleteTmpFile(output)
+
+	vf := "scale=512:512,fps=20"
+
+	cmd := exec.Command("ffmpeg",
+		"-i", input,
+		"-t", "5",
+		"-an",
+		"-vcodec", "libwebp",
+		"-vf", vf,
+		"-loop", "0",
+		"-fs", "950K",
+		"-f", "webp",
+		output,
+	)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		slog.Error("FFmpeg squash conversion failed", "error", err.Error(), "output", string(out))
+		return nil, fmt.Errorf("ffmpeg error: %w", err)
+	}
+
+	return os.ReadFile(output)
+}
+
 func ExecFFMpreg(input string) ([]byte, error) {
 	output := fmt.Sprintf("%s-new.webp", input)
 	defer DeleteTmpFile(output)
@@ -29,15 +56,11 @@ func ExecFFMpreg(input string) ([]byte, error) {
 		output,
 	)
 
-	slog.Info("Iniciando conversao")
-
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.Error("FFmpeg conversion failed", "error", err.Error(), "output", string(out))
 		return nil, fmt.Errorf("ffmpeg error: %w", err)
 	}
-
-	slog.Info("Conversao concluida")
 
 	return os.ReadFile(output)
 }
@@ -99,14 +122,22 @@ func GenerateMetadata(author, pack string) ([]byte, error) {
 	return finalBuffer.Bytes(), nil
 }
 
+type StickerType int
+
+const (
+	StickerOriginal StickerType = iota
+	StickerSquash
+)
+
 type Sticker struct {
 	Author string
 	Pack   string
 	Data   []byte
+	Type   StickerType
 }
 
-func New(author, pack string, data []byte) *Sticker {
-	return &Sticker{author, pack, data}
+func New(author, pack string, data []byte, sType StickerType) *Sticker {
+	return &Sticker{author, pack, data, sType}
 }
 
 func DeleteTmpFile(filename string) error {
@@ -122,18 +153,23 @@ func (s *Sticker) addMetadata(content []byte) ([]byte, error) {
 }
 
 func (s *Sticker) Convert() ([]byte, error) {
-	slog.Info("Starting convertion")
 	file, err := CreateTempFile(s.Data)
 	if err != nil {
 		return nil, err
 	}
+	defer DeleteTmpFile(file)
 
-	slog.Info("Starting ffmpeg")
-	output, err := ExecFFMpreg(file)
+	var output []byte
+
+	if s.Type == StickerSquash {
+		output, err = ExecFFmpregSquash(file)
+	} else {
+		output, err = ExecFFMpreg(file)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	slog.Info("adding metadata")
 	return s.addMetadata(output)
 }

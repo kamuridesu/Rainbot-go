@@ -62,7 +62,19 @@ func init() {
 		true,
 		false,
 		false,
-		NewSticker,
+		NewStickerSquash,
+	)
+
+	commands.NewCommand(
+		"ssticker",
+		"Cria um sticker com o tamanho original",
+		"diversão",
+		&[]string{"figs", "ss", "figus"},
+		nil,
+		true,
+		false,
+		false,
+		NewStickerOriginal,
 	)
 
 	commands.NewCommand(

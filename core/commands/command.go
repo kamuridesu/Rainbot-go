@@ -52,7 +52,7 @@ func init() {
 	NewCommand("help",
 		"Mostra o menu de ajuda ou descrição de um comando",
 		"misc",
-		&[]string{"ajuda"},
+		&[]string{"ajuda", "menu"},
 		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
 		false,
 		false,

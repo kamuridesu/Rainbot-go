@@ -25,7 +25,7 @@ func getMessageMediaBytes(m *messages.Message) ([]byte, error) {
 	}
 }
 
-func NewSticker(m *messages.Message) {
+func newSticker(m *messages.Message, type_ sticker.StickerType) {
 
 	slog.Info("Recv sticker request")
 	var content []byte
@@ -34,7 +34,6 @@ func NewSticker(m *messages.Message) {
 
 	m.React(emojis.Waiting)
 
-	slog.Info("Downloading sticker")
 	if m.HasValidMedia(true) {
 		content, err = getMessageMediaBytes(m)
 	} else if m.QuotedMessage != nil && m.QuotedMessage.HasValidMedia(true) {
@@ -52,14 +51,12 @@ func NewSticker(m *messages.Message) {
 	author := *m.Bot.Name
 	pack := "bot"
 
-	slog.Info("Converting sticker")
-	st := sticker.New(author, pack, content)
+	st := sticker.New(author, pack, content, type_)
 	bytes, err := st.Convert()
 	if err != nil {
 		m.Reply(fmt.Sprintf("Falha ao converter para sticker: %s", err), emojis.Fail)
 		return
 	}
-	slog.Info("Sending sticker")
 
 	f, err := sticker.CreateTempFile(bytes)
 	if err == nil {
@@ -70,4 +67,12 @@ func NewSticker(m *messages.Message) {
 	if err != nil {
 		slog.Error(err.Error())
 	}
+}
+
+func NewStickerOriginal(m *messages.Message) {
+	newSticker(m, sticker.StickerOriginal)
+}
+
+func NewStickerSquash(m *messages.Message) {
+	newSticker(m, sticker.StickerSquash)
 }
