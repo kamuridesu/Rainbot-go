@@ -92,7 +92,7 @@ func WarnUser(m *messages.Message) {
 
 func RemoveUserWarn(m *messages.Message) {
 
-	message := ""
+	var builder strings.Builder
 
 	for _, user := range m.MentionedMembers {
 		if user.Warns < 1 {
@@ -100,10 +100,10 @@ func RemoveUserWarn(m *messages.Message) {
 		}
 		user.Warns--
 		m.Bot.DB.Member.Update(user)
-		message += fmt.Sprintf("Aviso removido, agora %s tem %d avisos.", utils.ParseLidToMention(user.JID), user.Warns)
+		fmt.Fprintf(&builder, "Aviso removido, agora %s tem %d avisos.", utils.ParseLidToMention(user.JID), user.Warns)
 	}
 
-	m.Reply(message, emojis.Success)
+	m.Reply(builder.String(), emojis.Success)
 
 }
 
@@ -185,23 +185,35 @@ func MessagesPerMember(m *messages.Message) {
 		return
 	}
 
+	dedups := []string{}
+	dMembers := []*models.Member{}
+	for _, member := range members {
+		if !slices.Contains(dedups, member.JID+member.ChatID) {
+			dedups = append(dedups, member.JID+member.ChatID)
+			dMembers = append(dMembers, member)
+		}
+	}
+
+	members = dMembers
+
 	slices.SortStableFunc(members, func(a, b *models.Member) int {
 		return b.Messages - a.Messages
 	})
 
-	msg := "Total de mensagens por membros: \n\n"
-
+	var builder strings.Builder
+	builder.WriteString("Total de mensagens por membros: \n\n")
 	for i, member := range members {
 		if member.Messages == 0 {
 			continue
 		}
-		msg += fmt.Sprintf(`- %s: %d`, member.JID, member.Messages)
+
+		fmt.Fprintf(&builder, `- %s: %d`, member.JID, member.Messages)
 		if i < len(members)-1 {
-			msg += "\n"
+			builder.WriteString("\n")
 		}
 	}
 
-	m.Reply(msg, emojis.Success)
+	m.Reply(builder.String(), emojis.Success)
 }
 
 func PurgeMessages(m *messages.Message) {
@@ -226,19 +238,21 @@ func GetMembersZeroMessages(m *messages.Message) {
 		return
 	}
 
-	msg := "Membros com 0 mensagens: \n\n"
+	var builder strings.Builder
+	builder.WriteString("Membros com 0 mensagens: \n\n")
 
 	for i, member := range members {
 		if member.Messages > 0 {
 			continue
 		}
-		msg += fmt.Sprintf(`- %s`, member.JID)
+
+		fmt.Fprintf(&builder, `- %s`, member.JID)
 		if i < len(members)-1 {
-			msg += "\n"
+			builder.WriteString("\n")
 		}
 	}
 
-	m.Reply(msg, emojis.Success)
+	m.Reply(builder.String(), emojis.Success)
 }
 
 func MuteMember(m *messages.Message) {

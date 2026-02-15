@@ -162,8 +162,8 @@ func formatMessage(text, term, prefix string) string {
 func formatCommandHelp(command *Command, prefix string, commandOrCategory string) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Comando: %s\n\n", commandOrCategory))
-	sb.WriteString(fmt.Sprintf("Descrição: \n%s", command.Description))
+	fmt.Fprintf(&sb, "Comando: %s\n\n", commandOrCategory)
+	fmt.Fprintf(&sb, "Descrição: \n%s", command.Description)
 
 	if command.Aliases != nil && len(*command.Aliases) > 0 {
 		sb.WriteString("\n\nApelidos: \n- ")

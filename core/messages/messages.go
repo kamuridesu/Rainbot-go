@@ -539,8 +539,6 @@ func (m *Message) Reply(content string, reaction ...emojis.Emoji) (*whatsmeow.Se
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
 			Text: proto.String(mentions.Text),
 			ContextInfo: &waE2E.ContextInfo{
-				StanzaID:    proto.String(m.RawEvent.Info.ID),
-				Participant: proto.String(m.RawEvent.Info.Sender.String()),
 				QuotedMessage: &waE2E.Message{
 					Conversation: proto.String(*m.Text),
 				},

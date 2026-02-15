@@ -16,14 +16,30 @@ func ParseLidToMention(lid string) string {
 }
 
 func GenerateMentionFromText(text string) *MentionMessage {
+	re := regexp.MustCompile(`@(\d+)|(\d+)@lid`)
 
-	re := regexp.MustCompile(`@(\d+)`)
-	lidsSlice := re.FindAllString(text, -1)
-	replaced := re.ReplaceAllString(text, "@$1")
+	matches := re.FindAllStringSubmatch(text, -1)
 
-	for i, s := range lidsSlice {
-		lidsSlice[i] = strings.Replace(s, "@", "", 1) + "@lid"
+	var lidsSlice []string
+
+	for _, match := range matches {
+		var id string
+
+		if match[1] != "" {
+			id = match[1]
+		}
+		if match[2] != "" {
+			id = match[2]
+		}
+
+		if id != "" {
+			lidsSlice = append(lidsSlice, id+"@lid")
+		}
 	}
+
+	replaced := text
+	reReplace := regexp.MustCompile(`\b(\d+)@lid\b`)
+	replaced = reReplace.ReplaceAllString(replaced, "@$1")
 
 	if len(lidsSlice) == 0 {
 		lidsSlice = nil
