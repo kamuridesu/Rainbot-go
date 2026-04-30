@@ -178,11 +178,9 @@ func (m *Message) sendAndLog(chatId types.JID, msg *waE2E.Message, mediaType str
 
 func (m *Message) buildReplyContext() *waE2E.ContextInfo {
 	return &waE2E.ContextInfo{
-		StanzaID:    proto.String(m.RawEvent.Info.ID),
-		Participant: proto.String(m.RawEvent.Info.Sender.String()),
-		QuotedMessage: &waE2E.Message{
-			Conversation: proto.String(m.safeText()),
-		},
+		StanzaID:      proto.String(m.RawEvent.Info.ID),
+		Participant:   proto.String(m.RawEvent.Info.Sender.ToNonAD().String()),
+		QuotedMessage: m.RawMessage,
 	}
 }
 
