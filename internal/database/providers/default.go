@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"slices"
 	"strconv"
+	"strings"
 
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
@@ -21,18 +22,18 @@ func (d *Database) GetQuery(query string) string {
 	case "sqlite3":
 		return query
 	case "postgres":
-		oQuery := ""
+		var oQuery strings.Builder
 		counter := 1
 		for i := 0; i < len(query); i++ {
 			char := query[i]
 			if char == '?' {
-				oQuery += "$" + strconv.Itoa(counter)
+				oQuery.WriteString("$" + strconv.Itoa(counter))
 				counter++
 				continue
 			}
-			oQuery += string(char)
+			oQuery.WriteString(string(char))
 		}
-		return oQuery
+		return oQuery.String()
 	default:
 		return query
 	}

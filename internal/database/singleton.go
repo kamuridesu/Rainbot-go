@@ -9,9 +9,10 @@ import (
 )
 
 type DatabaseSingleton struct {
-	Chat   *services.ChatService
-	Member *services.MemberService
-	Filter *services.FilterService
+	Chat    *services.ChatService
+	Member  *services.MemberService
+	Filter  *services.FilterService
+	Message *services.MessageService
 }
 
 var databaseSingleton *DatabaseSingleton
@@ -28,15 +29,23 @@ func InitDatabaseSingleton(driver, parameters string) (*DatabaseSingleton, error
 	chatRepo := repositories.NewChatRepository(db)
 	memberRepo := repositories.NewMemberRepository(db)
 	filterRepo := repositories.NewFilterRepository(db)
+	messageRepo := repositories.NewMessageRepository(db)
+
+	if err := messageRepo.InitSchema(); err != nil {
+		return nil, err
+	}
+	messageRepo.StartPartitionManager()
 
 	chatService := services.NewChatService(chatRepo)
 	memberService := services.NewMemberService(memberRepo)
 	filterService := services.NewFilterRepository(filterRepo)
+	messageService := services.NewMessageService(messageRepo)
 
 	singleton := DatabaseSingleton{
-		Chat:   chatService,
-		Member: memberService,
-		Filter: filterService,
+		Chat:    chatService,
+		Member:  memberService,
+		Filter:  filterService,
+		Message: messageService,
 	}
 
 	databaseSingleton = &singleton
