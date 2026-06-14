@@ -134,4 +134,13 @@ func init() {
 	commands.NewCommand("video", "Baixa um video", "diversão", nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
 	commands.NewCommand("music", "Baixa uma musica", "diversão", nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
 
+	commands.NewCommand("ronline",
+		"Mostra os membros online de uma guilda no Rucoy online",
+		"diversão",
+		&[]string{"online"},
+		nil,
+		true, true, false,
+		RucoyOnlineGuild,
+		commands.HasArgs(1),
+	)
 }

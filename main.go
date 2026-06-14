@@ -16,8 +16,8 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/database"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 
-	_ "github.com/kamuridesu/rainbot-go/core/commands/admin"
-	_ "github.com/kamuridesu/rainbot-go/core/commands/fun"
+	_ "github.com/kamuridesu/rainbot-go/commands/admin"
+	_ "github.com/kamuridesu/rainbot-go/commands/fun"
 	// _ "github.com/kamuridesu/rainbot-go/core/commands/test"
 )
 
