@@ -29,6 +29,7 @@ RUN go mod download
 COPY ./*.go /workspace/
 COPY ./internal /workspace/internal
 COPY ./core /workspace/core
+COPY ./commands/ /workspace/commands
 RUN go build -ldflags='-s -w -extldflags "-static"'  -o "default-app"
 RUN upx --best --lzma /workspace/default-app
 
