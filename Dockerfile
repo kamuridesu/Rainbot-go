@@ -10,7 +10,7 @@ RUN case "$(uname -m)" in \
       *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;; \
     esac && \
     echo "Detected system architecture: $(uname -m) -> Downloading FFmpeg for: $ARCH" && \
-    curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${ARCH}-static.tar.xz" | \
+    curl -L "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-${ARCH}-gpl.tar.xz" | \
     tar -xJ --no-same-owner --no-same-permissions && \
     mv ffmpeg-*-static/ffmpeg /usr/local/bin/ffmpeg && \
     mv ffmpeg-*-static/ffprobe /usr/local/bin/ffprobe && \
