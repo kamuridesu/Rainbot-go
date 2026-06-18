@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -44,7 +45,7 @@ func GetChatFilters(m *messages.Message) error {
 	}
 
 	for _, filter := range filters {
-		if strings.Contains(*m.Text, filter.Pattern) {
+		if slices.Contains(strings.Split(*m.Text, " "), filter.Pattern) {
 			if filter.Kind == "text" {
 				m.Reply(filter.Response)
 				return nil
