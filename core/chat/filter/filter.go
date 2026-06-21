@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"regexp"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
@@ -15,16 +17,43 @@ import (
 
 var FilterCache sync.Map
 
+type cachedRegex struct {
+	re      *regexp.Regexp
+	lastUse atomic.Int64
+}
+
 func getCompiledPattern(pattern string) (*regexp.Regexp, error) {
 	if v, ok := FilterCache.Load(pattern); ok {
-		return v.(*regexp.Regexp), nil
+		entry := v.(*cachedRegex)
+		entry.lastUse.Store(time.Now().Unix())
+		return entry.re, nil
 	}
-	re, err := regexp.Compile(`(?i)\b` + regexp.QuoteMeta(pattern) + `\b`)
+
+	re, err := regexp.Compile(`(?i)(?:^|\s)` + regexp.QuoteMeta(pattern) + `(?:\s|$)`)
 	if err != nil {
 		return nil, err
 	}
-	FilterCache.Store(pattern, re)
+
+	entry := &cachedRegex{re: re}
+	entry.lastUse.Store(time.Now().Unix())
+	FilterCache.Store(pattern, entry)
 	return re, nil
+}
+
+func StartCacheEviction(interval, ttl time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			cutoff := time.Now().Add(-ttl).Unix()
+			FilterCache.Range(func(k, v any) bool {
+				if v.(*cachedRegex).lastUse.Load() < cutoff {
+					FilterCache.Delete(k)
+				}
+				return true
+			})
+		}
+	}()
 }
 
 func matchesPattern(text, pattern string) bool {

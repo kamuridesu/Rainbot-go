@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	v1 "github.com/kamuridesu/rainbot-go/core/api/v1"
 	"github.com/kamuridesu/rainbot-go/core/chat"
+	"github.com/kamuridesu/rainbot-go/core/chat/filter"
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
@@ -63,6 +65,8 @@ func main() {
 	go func() {
 		v1.Serve(":8080")
 	}()
+
+	filter.StartCacheEviction(10*time.Minute, 30*time.Minute)
 
 	// Listen to Ctrl+C (you can also do something else that prevents the program from exiting)
 	c := make(chan os.Signal, 1)

@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS member (
 
 CREATE TABLE IF NOT EXISTS filter (
     chatId TEXT NOT NULL,
-    pattern TEXT PRIMARY KEY NOT NULL,
+    pattern TEXT NOT NULL,
     kind TEXT NOT NULL,
     response TEXT NOT NULL,
     FOREIGN KEY(chatId) REFERENCES chat(chatId)
