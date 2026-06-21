@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	cFilter "github.com/kamuridesu/rainbot-go/core/chat/filter"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
@@ -107,15 +108,16 @@ func ShowFilters(m *messages.Message) {
 		return
 	}
 
-	msg := ""
+	var msg strings.Builder
 	for i, filter := range filters {
-		msg += "- " + filter.Pattern
+		msg.WriteString("- ")
+		msg.WriteString(filter.Pattern)
 		if i < len(filters) {
-			msg += "\n"
+			msg.WriteString("\n")
 		}
 	}
 
-	m.Reply("// Filtros \\\\\n\n"+msg, emojis.Success)
+	m.Reply("// Filtros \\\\\n\n"+msg.String(), emojis.Success)
 }
 
 func DeleteFilter(m *messages.Message) {
@@ -124,19 +126,21 @@ func DeleteFilter(m *messages.Message) {
 		return
 	}
 
+	filterPattern := strings.Join(*m.Args, " ")
+
 	var foundFilter *models.Filter
 	for _, filter := range filters {
-		if *m.Text == filter.Pattern {
+		if filterPattern == filter.Pattern {
 			foundFilter = filter
 		}
 	}
 
 	if foundFilter == nil {
+		m.Reply("No filter with pattern "+filterPattern+" found", emojis.Fail)
 		return
 	}
 
-	pattern := strings.Join(*m.Args, " ")
-	err = m.Bot.DB.Filter.Delete(m.Chat.ChatID, pattern)
+	err = m.Bot.DB.Filter.Delete(m.Chat.ChatID, foundFilter.Pattern)
 	if err != nil {
 		m.Reply(fmt.Sprintf("Erro ao deleter filtro: %s", err), emojis.Fail)
 		return
@@ -148,5 +152,7 @@ func DeleteFilter(m *messages.Message) {
 			m.Reply("Erro ao deletar arquivo do filtro", emojis.Fail)
 		}
 	}
+
+	cFilter.FilterCache.Delete(foundFilter.Pattern)
 	m.React(emojis.Success)
 }
