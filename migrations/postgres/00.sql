@@ -30,3 +30,4 @@ CREATE TABLE IF NOT EXISTS filter (
     response TEXT NOT NULL,
     FOREIGN KEY(chatId) REFERENCES chat(chatId)
 );
+

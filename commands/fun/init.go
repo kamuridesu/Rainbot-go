@@ -143,4 +143,6 @@ func init() {
 		RucoyOnlineGuild,
 		commands.HasArgs(1),
 	)
+
+	commands.NewCommand("quotly", "gera um quote", "diversão", nil, nil, true, false, false, HandleQuoteCommand, commands.HasQuotedMessage)
 }

@@ -68,7 +68,7 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 		rawMsg = quotedMessage
 	}
 
-	msgType, text, rawMentions, nextQuotedMsg, _ := parseMessageContent(rawMsg)
+	msgType, text, rawMentions, nextQuotedMsg, _, quotedMessageAuthor := parseMessageContent(rawMsg)
 
 	message := &Message{
 		Ctx:        ctx,
@@ -86,6 +86,15 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 		if err != nil {
 			slog.Error("Error parsing quoted message", "err", err)
 			return nil, err
+		}
+
+		if quotedMessageAuthor != "" {
+			quotedMember, fetchErr := fetchMember(bot, chatJID, quotedMessageAuthor)
+			if fetchErr == nil {
+				message.QuotedMessage.Author = quotedMember
+			} else {
+				slog.Warn("Could not fetch quoted message author", "jid", quotedMessageAuthor, "err", fetchErr)
+			}
 		}
 	}
 
@@ -127,6 +136,46 @@ func (h *Handler) Handle(event any) {
 			if err != nil {
 				slog.Error("error parsing message, err is: " + err.Error())
 				return
+			}
+
+			timestamp := message.RawEvent.Info.Timestamp
+			if timestamp.IsZero() {
+				timestamp = time.Now()
+			}
+
+			var quotedID *string
+			if raw := message.RawMessage; raw != nil {
+				if ext := raw.GetExtendedTextMessage(); ext != nil && ext.ContextInfo != nil {
+					quotedID = ext.ContextInfo.StanzaID
+				} else if img := raw.GetImageMessage(); img != nil && img.ContextInfo != nil {
+					quotedID = img.ContextInfo.StanzaID
+				} else if vid := raw.GetVideoMessage(); vid != nil && vid.ContextInfo != nil {
+					quotedID = vid.ContextInfo.StanzaID
+				} else if doc := raw.GetDocumentMessage(); doc != nil && doc.ContextInfo != nil {
+					quotedID = doc.ContextInfo.StanzaID
+				} else if aud := raw.GetAudioMessage(); aud != nil && aud.ContextInfo != nil {
+					quotedID = aud.ContextInfo.StanzaID
+				} else if stk := raw.GetStickerMessage(); stk != nil && stk.ContextInfo != nil {
+					quotedID = stk.ContextInfo.StanzaID
+				}
+			}
+
+			if quotedID != nil && *quotedID == message.RawEvent.Info.ID {
+				slog.Warn("Prevented message from quoting itself", "stanzaId", *quotedID)
+				quotedID = nil
+			}
+
+			dbMsg := &models.Message{
+				StanzaID:       message.RawEvent.Info.ID,
+				ChatID:         message.Chat.ChatID,
+				SenderJID:      message.Author.JID,
+				MessageText:    *message.Text,
+				QuotedStanzaID: quotedID,
+				CreatedAt:      timestamp,
+			}
+
+			if err := h.Bot.DB.Message.SaveMessage(dbMsg); err != nil {
+				slog.Error("Failed to save message to database", "err", err)
 			}
 
 			if message.Chat.IsBotEnabled == 0 {

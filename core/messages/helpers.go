@@ -24,7 +24,7 @@ func fetchMessageContext(bot *bot.Bot, chatJID, authorJID string) (*models.Chat,
 		return nil, nil, nil, err
 	}
 
-	member, err := bot.DB.Member.GetOrCreateMember(chatJID, authorJID)
+	member, err := fetchMember(bot, chatJID, authorJID)
 	if err != nil {
 		slog.Error("Error fetching member info from db", "err", err)
 		return nil, nil, nil, err
@@ -39,6 +39,15 @@ func fetchMessageContext(bot *bot.Bot, chatJID, authorJID string) (*models.Chat,
 	return chat, member, filters, nil
 }
 
+func fetchMember(bot *bot.Bot, chatJID, authorJID string) (*models.Member, error) {
+	member, err := bot.DB.Member.GetOrCreateMember(chatJID, authorJID)
+	if err != nil {
+		slog.Error("Error fetching member info from db", "err", err)
+		return nil, err
+	}
+	return member, nil
+}
+
 func getAuthorJID(v *events.Message) string {
 	authorJid := v.Info.Sender.ToNonAD().String()
 	if !strings.Contains(authorJid, "@lid") {
@@ -50,9 +59,10 @@ func getAuthorJID(v *events.Message) string {
 	return authorJid
 }
 
-func parseMessageContent(rawMsg *waE2E.Message) (msgType MessageType, text *string, mentions []string, quoted *waE2E.Message, quotedStanzaID string) {
+func parseMessageContent(rawMsg *waE2E.Message) (msgType MessageType, text *string, mentions []string, quoted *waE2E.Message, quotedStanzaID, quotedMessageAuthor string) {
 	mentions = make([]string, 0)
 	quotedStanzaID = ""
+	quotedMessageAuthor = ""
 
 	switch {
 	case rawMsg.Conversation != nil:
@@ -66,6 +76,8 @@ func parseMessageContent(rawMsg *waE2E.Message) (msgType MessageType, text *stri
 			mentions = append(mentions, ctxInfo.GetMentionedJID()...)
 			if ctxInfo.Participant != nil {
 				mentions = append(mentions, *ctxInfo.Participant)
+				quotedMessageAuthor = ctxInfo.GetParticipant()
+
 			}
 			quoted = ctxInfo.QuotedMessage
 			if ctxInfo.StanzaID != nil {
@@ -109,7 +121,7 @@ func parseMessageContent(rawMsg *waE2E.Message) (msgType MessageType, text *stri
 		msgType = Unknown
 	}
 
-	return msgType, text, mentions, quoted, quotedStanzaID
+	return msgType, text, mentions, quoted, quotedStanzaID, quotedMessageAuthor
 }
 
 func resolveMentions(ctx context.Context, bot *bot.Bot, chatJID string, rawMentions []string) ([]*models.Member, error) {

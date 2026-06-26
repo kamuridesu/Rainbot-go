@@ -31,9 +31,6 @@ func InitDatabaseSingleton(driver, parameters string) (*DatabaseSingleton, error
 	filterRepo := repositories.NewFilterRepository(db)
 	messageRepo := repositories.NewMessageRepository(db)
 
-	if err := messageRepo.InitSchema(); err != nil {
-		return nil, err
-	}
 	messageRepo.StartPartitionManager()
 
 	chatService := services.NewChatService(chatRepo)
