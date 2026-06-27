@@ -1,70 +1,197 @@
 package fun
 
 import (
+	"errors"
+	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/core/modules/quotly"
+	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
+	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
+	"github.com/kamuridesu/rainbot-go/internal/storage"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
+	"go.mau.fi/whatsmeow/types"
 )
 
-func HandleQuoteCommand(msg *messages.Message) {
+func HandleQuoteCommand(m *messages.Message) {
 
-	var targetStanzaID string
-	if msg.QuotedMessage != nil {
-		targetStanzaID = msg.QuotedMessage.RawEvent.Info.ID
-	} else if msg.RawMessage.GetExtendedTextMessage().GetContextInfo().GetStanzaID() != "" {
-		targetStanzaID = msg.RawMessage.GetExtendedTextMessage().GetContextInfo().GetStanzaID()
-	} else {
-		msg.Reply("Please reply to a message to quote it.")
-		return
-	}
+	numMessages := 1
+	hasR := false
+	hasNumber := false
 
-	dbMsg, err := msg.Bot.DB.Message.GetMessage(targetStanzaID)
-	if err != nil || dbMsg == nil {
-		msg.Reply("Could not find the quoted message in the database. 🔍")
-		return
-	}
-
-	var ppBase64 string
-	ppBytes, err := utils.DownloadIUserProfilePic(msg.Ctx, dbMsg.SenderJID, msg.Bot)
-	if err == nil && len(ppBytes) > 0 {
-		ppBase64 = utils.Encode64(ppBytes, true)
-	}
-
-	displayName := strings.Split(dbMsg.SenderJID, "@")[0]
-
-	qMsg := quotly.QuotlyMessage{
-		From: quotly.QuotlyUser{
-			Id:        1,
-			FirstName: displayName,
-			Photo:     quotly.QuotlyUserPhoto{Url: ppBase64},
-		},
-		Text:   dbMsg.MessageText,
-		Avatar: true,
-	}
-
-	if dbMsg.QuotedStanzaID != nil {
-		replyDbMsg, err := msg.Bot.DB.Message.GetMessage(*dbMsg.QuotedStanzaID)
-		if err == nil && replyDbMsg != nil {
-			replyDisplayName := strings.Split(replyDbMsg.SenderJID, "@")[0]
-			qMsg.ReplyMessage = quotly.QuotlyReplyMessage{
-				Name:   replyDisplayName,
-				Text:   replyDbMsg.MessageText,
-				ChatId: 0,
+	if m.Args != nil {
+		for _, arg := range *m.Args {
+			if arg == "r" {
+				hasR = true
+			} else if val, err := strconv.Atoi(arg); err == nil {
+				numMessages = val
+				hasNumber = true
 			}
 		}
 	}
 
-	reqBody := quotly.DefaultTemplate
-	reqBody.Messages = []quotly.QuotlyMessage{qMsg}
+	if hasNumber {
 
-	imgBytes, err := quotly.Generate(msg.Ctx, reqBody)
-	if err != nil {
-		msg.Reply("Failed to generate quote image: "+err.Error(), emojis.Fail)
+		hasR = false
+		if numMessages > 5 {
+			numMessages = 5
+		}
+		if numMessages < 1 {
+			numMessages = 1
+		}
+	} else {
+
+		numMessages = 1
+	}
+
+	slog.Info("Starting quote generation", "count", numMessages, "hasR", hasR, "hasNumber", hasNumber)
+
+	primaryQuoteID := ""
+	if ctxInfo := m.RawMessage.GetExtendedTextMessage().GetContextInfo(); ctxInfo != nil && ctxInfo.StanzaID != nil {
+		primaryQuoteID = *ctxInfo.StanzaID
+	}
+
+	anchorMsg, err := m.Bot.DB.Message.GetMessage(primaryQuoteID)
+	if err != nil || anchorMsg == nil {
+		m.Reply("Could not find the quoted message.", emojis.Fail)
 		return
 	}
 
-	msg.ReplySticker(imgBytes, messages.ImageMessage)
+	history, err := m.Bot.DB.Message.GetMessageRange(m.Chat.ChatID, anchorMsg.CreatedAt, numMessages)
+	if err != nil || len(history) == 0 {
+		slog.Error("Failed to fetch message range", "err", err)
+		return
+	}
+
+	resolveAuthor := func(msg *models.Message) (string, []byte) {
+		pp, err := utils.DownloadIUserProfilePic(m.Ctx, msg.SenderJID, m.Bot)
+		if err != nil || pp == nil {
+			pp, _ = os.ReadFile("resources/images/default.png")
+		}
+
+		qJid, _ := types.ParseJID(msg.SenderJID)
+		qContact, err := m.Bot.Client.Store.Contacts.GetContact(m.Ctx, qJid)
+		name := ""
+		if err == nil && qContact.Found {
+			name = qContact.PushName
+			if name == "" {
+				name = qContact.FullName
+			}
+		}
+		if name == "" {
+			name = strings.Split(msg.SenderJID, "@")[0]
+		}
+		return name, pp
+	}
+
+	var quotlyMessages []quotly.QuotlyMessage
+
+	for _, msg := range history {
+		name, pp := resolveAuthor(msg)
+
+		qMsg := quotly.QuotlyMessage{
+			From: quotly.QuotlyUser{
+				FirstName: name,
+				Photo:     quotly.QuotlyUserPhoto{Url: utils.Encode64(pp, true)},
+			},
+			Text:   msg.MessageText,
+			Avatar: true,
+		}
+
+		if hasR && msg.QuotedStanzaID != nil {
+			parentMsg, err := m.Bot.DB.Message.GetMessage(*msg.QuotedStanzaID)
+			if err == nil && parentMsg != nil {
+				parentName, _ := resolveAuthor(parentMsg)
+
+				qMsg.ReplyMessage = quotly.QuotlyReplyMessage{
+					Name:   parentName,
+					Text:   parentMsg.MessageText,
+					ChatId: 1,
+					From: quotly.QuotlyReplyUser{
+						Id:   1,
+						Name: parentName,
+					},
+				}
+			}
+		}
+
+		quotlyMessages = append(quotlyMessages, qMsg)
+	}
+
+	quotlyBody := quotly.DefaultTemplate
+	quotlyBody.Messages = quotlyMessages
+
+	img, err := quotly.Generate(m.Ctx, quotlyBody)
+	if err != nil {
+		slog.Error("Failed to generate quote", "err", err)
+		m.Reply("Failed to generate quote.", emojis.Fail)
+		return
+	}
+
+	packName := "Quotly"
+	if m.Bot.Name != nil {
+		packName = *m.Bot.Name
+	}
+
+	s := sticker.New(*m.Bot.Name, packName, img, sticker.StickerTransparent)
+	stickerData, err := s.Convert()
+	if err != nil {
+		slog.Error("Failed to format sticker", "err", err)
+		m.Reply("Failed to format the sticker.", emojis.Fail)
+		return
+	}
+
+	var file *storage.File
+	for {
+		file = storage.NewFile(storage.RandomFilename("png"), storage.ModeWrite)
+		if exists, err := file.Exists(m.Ctx); err != nil {
+			if errors.Is(err, storage.ErrNotExists) {
+				break
+			}
+			slog.Error("storage error while checking if quotly file exists", "error", err)
+			m.Reply("storage error while checking if quotly file exists: "+err.Error(), emojis.Fail)
+			return
+		} else if !exists {
+			break
+		}
+	}
+
+	err = file.Write(m.Ctx, stickerData)
+	if err != nil {
+		slog.Error("storage error while saving quotly file", "error", err)
+	}
+
+	err = m.Bot.DB.Quotly.SaveQuotly(&models.QuotlyFile{
+		ChatID: m.Chat.ChatID,
+		FileId: file.Name,
+	})
+
+	if err != nil {
+		slog.Error("db error while saving quotly file", "error", err)
+	}
+
+	m.ReplySticker(stickerData, messages.StickerMessage, emojis.Success)
+}
+
+func RandomQuote(m *messages.Message) {
+	random, err := m.Bot.DB.Quotly.GetRandomByChat(m.Chat.ChatID)
+	if err != nil {
+		slog.Error("error fetching quote from db", "error", err)
+		m.React(emojis.Fail)
+		return
+	}
+
+	file := storage.NewFile(random.FileId, storage.ModeReadOnly)
+	b, err := file.Read(m.Ctx)
+	if err != nil {
+		slog.Error("error reading quote file", "error", err)
+		m.React(emojis.Fail)
+		return
+	}
+
+	m.ReplySticker(b, messages.StickerMessage, emojis.Success)
 }

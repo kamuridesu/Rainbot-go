@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"log/slog"
 
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	db "github.com/kamuridesu/rainbot-go/internal/database/providers"
@@ -29,7 +30,7 @@ func (r *chatRepository) Close() error {
 
 func (r *chatRepository) FindById(jid string) (*models.Chat, error) {
 	row := r.db.DB.QueryRow(r.db.GetQuery(
-		"SELECT chatId, isBotEnabled, prefix, adminOnly, customProfanityWords, profanityFilterEnabled, warnBanThreshold, allowAdults, allowGames, allowFun, welcomeMessage, countMessages FROM chat WHERE chatId = ?",
+		"SELECT chatId, isBotEnabled, prefix, adminOnly, customProfanityWords, profanityFilterEnabled, warnBanThreshold, allowAdults, allowGames, allowFun, welcomeMessage, countMessages, allowQuote, quotlyNMessages FROM chat WHERE chatId = ?",
 	), jid)
 
 	var chat models.Chat
@@ -46,6 +47,8 @@ func (r *chatRepository) FindById(jid string) (*models.Chat, error) {
 		&chat.AllowFun,
 		&chat.WelcomeMessage,
 		&chat.CountMessages,
+		&chat.AllowQuote,
+		&chat.QuoteNMessages,
 	)
 
 	if err != nil {
@@ -62,7 +65,38 @@ func (r *chatRepository) Create(jid string) error {
 }
 
 func (r *chatRepository) Update(chat *models.Chat) error {
-	_, err := r.db.DB.Exec(r.db.GetQuery("UPDATE chat SET isBotEnabled = ?, prefix = ?, adminOnly = ?, customProfanityWords = ?, profanityFilterEnabled = ?, warnBanThreshold = ?, allowAdults = ?, allowGames = ?, allowFun = ?, welcomeMessage = ?, countMessages = ? WHERE chatId = ?"), chat.IsBotEnabled, chat.Prefix, chat.AdminOnly, chat.CustomProfanityWords, chat.ProfanityFilterEnabled, chat.WarnBanThreshold, chat.AllowAdults, chat.AllowGames, chat.AllowFun, chat.WelcomeMessage, chat.CountMessages, chat.ChatID)
+	slog.Warn("updating chat")
+	_, err := r.db.DB.Exec(r.db.GetQuery(`
+		UPDATE chat SET 
+			isBotEnabled = ?, 
+			prefix = ?, 
+			adminOnly = ?, 
+			customProfanityWords = ?, 
+			profanityFilterEnabled = ?, 
+			warnBanThreshold = ?, 
+			allowAdults = ?, 
+			allowGames = ?, 
+			allowFun = ?, 
+			welcomeMessage = ?, 
+			countMessages = ?, 
+			allowQuote = ?, 
+			quotlyNMessages = ? 
+		WHERE chatId = ?`),
+		chat.IsBotEnabled,
+		chat.Prefix,
+		chat.AdminOnly,
+		chat.CustomProfanityWords,
+		chat.ProfanityFilterEnabled,
+		chat.WarnBanThreshold,
+		chat.AllowAdults,
+		chat.AllowGames,
+		chat.AllowFun,
+		chat.WelcomeMessage,
+		chat.CountMessages,
+		chat.AllowQuote,
+		chat.QuoteNMessages,
+		chat.ChatID,
+	)
 	return err
 }
 
