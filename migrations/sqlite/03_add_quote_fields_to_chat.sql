@@ -1,0 +1,2 @@
+ALTER TABLE chat ADD allowQuote INTEGER DEFAULT 1;
+ALTER TABLE chat add quotlyNMessages INTEGER DEFAULT 300;

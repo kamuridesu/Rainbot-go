@@ -13,4 +13,6 @@ type Chat struct {
 	AllowFun               int    `json:"allowFun"`
 	WelcomeMessage         string `json:"welcomeMessage"`
 	CountMessages          int    `json:"countMessages"`
+	AllowQuote             int    `json:"allowQuote"`
+	QuoteNMessages         int    `json:"quoteNMessages"`
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/chat/offenses"
 	"github.com/kamuridesu/rainbot-go/core/chat/profanity"
 	"github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/core/modules/quotly"
 )
 
 func ChatHandler(m *messages.Message) {
@@ -27,4 +28,5 @@ func ChatHandler(m *messages.Message) {
 		slog.Error(err.Error())
 		return
 	}
+	quotly.RandomQuoteDrop(m)
 }

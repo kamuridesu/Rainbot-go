@@ -78,11 +78,22 @@ func ParseSetupText(args []string, chat *models.Chat, chatService *services.Chat
 				return err
 			}
 			chat.AllowFun = boolToInt(value == "sim")
-		case "AtivarAdultos":
+		case "ativarAdultos":
 			if err := validateBool(value, index); err != nil {
 				return err
 			}
 			chat.AllowAdults = boolToInt(value == "sim")
+		case "ativarQuote":
+			if err := validateBool(value, index); err != nil {
+				return err
+			}
+			chat.AllowQuote = boolToInt(value == "sim")
+		case "quoteRate":
+			intValue, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("falha ao processar valor da config na linha %d, apenas numeros sao aceitos depois do =", index)
+			}
+			chat.QuoteNMessages = intValue
 		default:
 			return errors.New("Opção não reconhecida: " + key)
 		}
@@ -111,7 +122,9 @@ func GetHumanReadableSetup(chat *models.Chat) string {
 	message += fmt.Sprintf("contarMensagens=%s\n", boolTHuman(chat.CountMessages == 1))
 	message += fmt.Sprintf("filtroDeProfanidade=%s\n", boolTHuman(chat.ProfanityFilterEnabled == 1))
 	message += fmt.Sprintf("palavrasProibidas=%s\n", chat.CustomProfanityWords)
-	message += fmt.Sprintf("boasVindas=%s", chat.WelcomeMessage)
+	message += fmt.Sprintf("boasVindas=\"%s\"\n", chat.WelcomeMessage)
+	message += fmt.Sprintf("ativarQuote=%s\n", boolTHuman(chat.AllowQuote == 1))
+	message += fmt.Sprintf("quoteRate=%d\n", chat.QuoteNMessages)
 
 	return message
 

@@ -13,6 +13,7 @@ type DatabaseSingleton struct {
 	Member  *services.MemberService
 	Filter  *services.FilterService
 	Message *services.MessageService
+	Quotly  *services.QuotlyService
 }
 
 var databaseSingleton *DatabaseSingleton
@@ -30,22 +31,22 @@ func InitDatabaseSingleton(driver, parameters string) (*DatabaseSingleton, error
 	memberRepo := repositories.NewMemberRepository(db)
 	filterRepo := repositories.NewFilterRepository(db)
 	messageRepo := repositories.NewMessageRepository(db)
+	quotlyRepo := repositories.NewQuotlyRepository(db)
 
-	if err := messageRepo.InitSchema(); err != nil {
-		return nil, err
-	}
 	messageRepo.StartPartitionManager()
 
 	chatService := services.NewChatService(chatRepo)
 	memberService := services.NewMemberService(memberRepo)
 	filterService := services.NewFilterRepository(filterRepo)
 	messageService := services.NewMessageService(messageRepo)
+	quotlyService := services.NewQuotlyService(quotlyRepo)
 
 	singleton := DatabaseSingleton{
 		Chat:    chatService,
 		Member:  memberService,
 		Filter:  filterService,
 		Message: messageService,
+		Quotly:  quotlyService,
 	}
 
 	databaseSingleton = &singleton

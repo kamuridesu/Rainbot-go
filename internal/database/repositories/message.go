@@ -11,9 +11,9 @@ import (
 )
 
 type MessageRepository interface {
-	InitSchema() error
 	Create(msg *models.Message) error
 	FindByStanzaID(stanzaID string) (*models.Message, error)
+	FindMessagesAfter(chatId string, since time.Time, limit int) ([]*models.Message, error)
 	StartPartitionManager()
 	Close() error
 }
@@ -28,33 +28,6 @@ func NewMessageRepository(db *providers.Database) MessageRepository {
 
 func (r *messageRepository) Close() error {
 	return r.db.Close()
-}
-
-func (r *messageRepository) InitSchema() error {
-	var query string
-	if r.db.Driver == "postgres" {
-		query = `CREATE TABLE IF NOT EXISTS messages (
-			stanzaId VARCHAR(255) NOT NULL,
-			chatId VARCHAR(255) NOT NULL,
-			senderJid VARCHAR(255) NOT NULL,
-			messageText TEXT,
-			quotedStanzaId VARCHAR(255),
-			createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (stanzaId, createdAt)
-		) PARTITION BY RANGE (createdAt);`
-	} else {
-		query = `CREATE TABLE IF NOT EXISTS messages (
-			stanzaId VARCHAR(255) PRIMARY KEY,
-			chatId VARCHAR(255) NOT NULL,
-			senderJid VARCHAR(255) NOT NULL,
-			messageText TEXT,
-			quotedStanzaId VARCHAR(255),
-			createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
-	}
-
-	_, err := r.db.DB.Exec(query)
-	return err
 }
 
 func (r *messageRepository) Create(msg *models.Message) error {
@@ -92,6 +65,31 @@ func (r *messageRepository) FindByStanzaID(stanzaID string) (*models.Message, er
 	}
 
 	return &msg, nil
+}
+
+func (r *messageRepository) FindMessagesAfter(chatId string, since time.Time, limit int) ([]*models.Message, error) {
+	query := r.db.GetQuery("SELECT stanzaId, chatId, senderJid, messageText, quotedStanzaId, createdAt FROM messages WHERE chatId = ? AND createdAt >= ? ORDER BY createdAt ASC LIMIT ?")
+
+	rows, err := r.db.DB.Query(query, chatId, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*models.Message
+	for rows.Next() {
+		var msg models.Message
+		var quotedID sql.NullString
+		err := rows.Scan(&msg.StanzaID, &msg.ChatID, &msg.SenderJID, &msg.MessageText, &quotedID, &msg.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		if quotedID.Valid {
+			msg.QuotedStanzaID = &quotedID.String
+		}
+		messages = append(messages, &msg)
+	}
+	return messages, nil
 }
 
 func (r *messageRepository) StartPartitionManager() {

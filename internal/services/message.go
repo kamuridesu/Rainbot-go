@@ -1,6 +1,8 @@
 package services
 
 import (
+	"time"
+
 	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/database/repositories"
 )
@@ -19,6 +21,10 @@ func (s *MessageService) SaveMessage(msg *models.Message) error {
 
 func (s *MessageService) GetMessage(stanzaID string) (*models.Message, error) {
 	return s.repo.FindByStanzaID(stanzaID)
+}
+
+func (s *MessageService) GetMessageRange(chatId string, since time.Time, limit int) ([]*models.Message, error) {
+	return s.repo.FindMessagesAfter(chatId, since, limit)
 }
 
 func (s *MessageService) Close() error {

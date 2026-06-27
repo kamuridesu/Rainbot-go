@@ -11,6 +11,33 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
 
+func ExecFFmpregTransparent(input string) ([]byte, error) {
+	output := fmt.Sprintf("%s-transparent.webp", input)
+	defer DeleteTmpFile(output)
+
+	vf := `scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=0x00000000,fps=20`
+
+	cmd := exec.Command("ffmpeg",
+		"-i", input,
+		"-t", "5",
+		"-an",
+		"-vcodec", "libwebp",
+		"-vf", vf,
+		"-loop", "0",
+		"-fs", "950K",
+		"-f", "webp",
+		output,
+	)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		slog.Error("FFmpeg transparent conversion failed", "error", err.Error(), "output", string(out))
+		return nil, fmt.Errorf("ffmpeg error: %w", err)
+	}
+
+	return os.ReadFile(output)
+}
+
 func ExecFFmpregSquash(input string) ([]byte, error) {
 	output := fmt.Sprintf("%s-squash.webp", input)
 	defer DeleteTmpFile(output)
@@ -127,6 +154,7 @@ type StickerType int
 const (
 	StickerOriginal StickerType = iota
 	StickerSquash
+	StickerTransparent
 )
 
 type Sticker struct {
@@ -161,9 +189,12 @@ func (s *Sticker) Convert() ([]byte, error) {
 
 	var output []byte
 
-	if s.Type == StickerSquash {
+	switch s.Type {
+	case StickerSquash:
 		output, err = ExecFFmpregSquash(file)
-	} else {
+	case StickerTransparent:
+		output, err = ExecFFmpregTransparent(file)
+	default:
 		output, err = ExecFFMpreg(file)
 	}
 

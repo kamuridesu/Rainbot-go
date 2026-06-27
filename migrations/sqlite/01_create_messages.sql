@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS messages (
+    stanzaId VARCHAR(255) PRIMARY KEY,
+    chatId VARCHAR(255) NOT NULL,
+    senderJid VARCHAR(255) NOT NULL,
+    messageText TEXT,
+    quotedStanzaId VARCHAR(255),
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+);

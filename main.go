@@ -20,7 +20,7 @@ import (
 
 	_ "github.com/kamuridesu/rainbot-go/commands/admin"
 	_ "github.com/kamuridesu/rainbot-go/commands/fun"
-	// _ "github.com/kamuridesu/rainbot-go/core/commands/test"
+	// _ "github.com/kamuridesu/rainbot-go/commands/test"
 )
 
 func init() {
