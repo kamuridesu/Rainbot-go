@@ -26,11 +26,23 @@ type ParsedRucoyGuildData struct {
 
 func (p *ParsedRucoyGuildData) String(onlineOnly bool) string {
 	sb := strings.Builder{}
-	fmt.Fprintf(&sb, "Online em %s:\n", p.Guild)
+	if onlineOnly {
+		fmt.Fprintf(&sb, "Online em %s:\n", p.Guild)
+	} else {
+		fmt.Fprintf(&sb, "Membros em %s:\n", p.Guild)
+	}
+
+	onlineCount := 0
 	for _, member := range p.Members {
 		if !onlineOnly || (onlineOnly && member.Online) {
 			fmt.Fprintf(&sb, "- %s: lv %d\n", member.Name, member.Level)
+			if onlineOnly && member.Online {
+				onlineCount++
+			}
 		}
+	}
+	if onlineOnly && onlineCount == 0 {
+		return fmt.Sprintf("Nenhum jogador online em %s.", p.Guild)
 	}
 	return sb.String()
 }
@@ -85,6 +97,10 @@ func RucoyOnlineGuild(m *messages.Message) {
 	}
 
 	rucoyGuild := parseRucoyResponse(response, guild)
+	if len(rucoyGuild.Members) == 0 {
+		m.Reply("Guild não encontrada", emojis.Fail)
+		return
+	}
 
 	m.Reply(rucoyGuild.String(true), emojis.Success)
 }
