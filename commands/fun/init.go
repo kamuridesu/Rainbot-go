@@ -144,6 +144,16 @@ func init() {
 		commands.HasArgs(1),
 	)
 
+	commands.NewCommand("upskill",
+		"Calcula quanto tempo demora para ir de uma skill ate outra no Rucoy Online",
+		"diversão",
+		nil,
+		&[]string{"${prefix}${alias} 400 450 5000"},
+		true, true, false,
+		Upskill,
+		commands.HasArgs(3),
+	)
+
 	commands.NewCommand("quotly",
 		"gera um quote",
 		"diversão",

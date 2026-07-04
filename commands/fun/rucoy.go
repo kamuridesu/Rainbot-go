@@ -88,3 +88,82 @@ func RucoyOnlineGuild(m *messages.Message) {
 
 	m.Reply(rucoyGuild.String(true), emojis.Success)
 }
+
+func Upskill(m *messages.Message) {
+	args := *m.Args
+
+	fromSkill, err := strconv.Atoi(args[0])
+	if err != nil {
+		m.Reply("skillatual precisa ser um numero. Exemplo: /upskill 400 450 5000", emojis.Fail)
+		return
+	}
+
+	toSkill, err := strconv.Atoi(args[1])
+	if err != nil {
+		m.Reply("skilldesejada precisa ser um numero. Exemplo: /upskill 400 450 5000", emojis.Fail)
+		return
+	}
+
+	tickrate, err := strconv.Atoi(args[2])
+	if err != nil {
+		m.Reply("tickrate precisa ser um numero. Exemplo: /upskill 400 450 5000", emojis.Fail)
+		return
+	}
+
+	if fromSkill < 55 {
+		fromSkill = 55
+	}
+	if toSkill <= fromSkill {
+		m.Reply("A skill desejada precisa ser maior que a skill atual.", emojis.Fail)
+		return
+	}
+	if tickrate < 200 {
+		tickrate = 200
+	}
+	if tickrate > 50400 {
+		tickrate = 50400
+	}
+
+	params := url.Values{}
+	params.Set("fromValue", strconv.Itoa(fromSkill))
+	params.Set("toLevel", strconv.Itoa(toSkill))
+	params.Set("trainMode", strconv.Itoa(tickrate))
+
+	requestURL := "https://rucoystatsapi.net/api/calculator/amount-time?" + params.Encode()
+
+	var result string
+	err = utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &result, nil)
+	if err != nil {
+		m.Reply("Erro ao calcular upskill: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	m.Reply(fmt.Sprintf(
+		"Upskill Rucoy\n\nSkill atual: %d\nSkill desejada: %d\nTickrate: %d\nTempo estimado: %s",
+		fromSkill,
+		toSkill,
+		tickrate,
+		formatUpskillTime(result),
+	), emojis.Success)
+}
+
+func formatUpskillTime(raw string) string {
+	parts := strings.Split(strings.TrimSpace(raw), ":")
+
+	switch len(parts) {
+	case 3:
+		days, _ := strconv.Atoi(parts[0])
+		hours, _ := strconv.Atoi(parts[1])
+		minutes, _ := strconv.Atoi(parts[2])
+		return fmt.Sprintf("%d dias, %d horas e %d minutos", days, hours, minutes)
+	case 2:
+		hours, _ := strconv.Atoi(parts[0])
+		minutes, _ := strconv.Atoi(parts[1])
+		return fmt.Sprintf("%d horas e %d minutos", hours, minutes)
+	case 1:
+		minutes, _ := strconv.Atoi(parts[0])
+		return fmt.Sprintf("%d minutos", minutes)
+	default:
+		return raw
+	}
+}
