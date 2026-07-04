@@ -155,7 +155,7 @@ func formatUpskillTime(raw string) string {
 		days, _ := strconv.Atoi(parts[0])
 		hours, _ := strconv.Atoi(parts[1])
 		minutes, _ := strconv.Atoi(parts[2])
-		return fmt.Sprintf("%d dias, %d horas e %d minutos", days, hours, minutes)
+		return fmt.Sprintf("%d horas e %d minutos", days*24+hours, minutes)
 	case 2:
 		hours, _ := strconv.Atoi(parts[0])
 		minutes, _ := strconv.Atoi(parts[1])
