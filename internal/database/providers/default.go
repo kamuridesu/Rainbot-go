@@ -27,7 +27,8 @@ func (d *Database) GetQuery(query string) string {
 		for i := 0; i < len(query); i++ {
 			char := query[i]
 			if char == '?' {
-				oQuery.WriteString("$" + strconv.Itoa(counter))
+				oQuery.WriteString("$")
+				oQuery.WriteString(strconv.Itoa(counter))
 				counter++
 				continue
 			}

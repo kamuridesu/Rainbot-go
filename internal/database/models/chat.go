@@ -15,4 +15,5 @@ type Chat struct {
 	CountMessages          int    `json:"countMessages"`
 	AllowQuote             int    `json:"allowQuote"`
 	QuoteNMessages         int    `json:"quoteNMessages"`
+	AllowOffensiveReplies  int    `json:"allowOffensiveReplies"`
 }

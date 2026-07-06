@@ -22,6 +22,10 @@ var responses = []string{
 
 func OffendsBot(m *messages.Message) bool {
 
+	if m.Chat.AllowOffensiveReplies == 0 {
+		return false
+	}
+
 	if m.Chat.ProfanityFilterEnabled == 1 {
 		return false
 	}
