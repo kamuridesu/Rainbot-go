@@ -94,6 +94,11 @@ func ParseSetupText(args []string, chat *models.Chat, chatService *services.Chat
 				return fmt.Errorf("falha ao processar valor da config na linha %d, apenas numeros sao aceitos depois do =", index)
 			}
 			chat.QuoteNMessages = intValue
+		case "responderOfensa":
+			if err := validateBool(value, index); err != nil {
+				return err
+			}
+			chat.AllowOffensiveReplies = boolToInt(value == "sim")
 		default:
 			return errors.New("Opção não reconhecida: " + key)
 		}
@@ -125,6 +130,7 @@ func GetHumanReadableSetup(chat *models.Chat) string {
 	message += fmt.Sprintf("boasVindas=\"%s\"\n", chat.WelcomeMessage)
 	message += fmt.Sprintf("ativarQuote=%s\n", boolTHuman(chat.AllowQuote == 1))
 	message += fmt.Sprintf("quoteRate=%d\n", chat.QuoteNMessages)
+	message += fmt.Sprintf("responderOfensa=%s\n", boolTHuman(chat.AllowOffensiveReplies == 1))
 
 	return message
 
