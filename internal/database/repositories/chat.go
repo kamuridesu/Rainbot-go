@@ -97,8 +97,8 @@ func (r *chatRepository) Update(chat *models.Chat) error {
 		chat.CountMessages,
 		chat.AllowQuote,
 		chat.QuoteNMessages,
-		chat.ChatID,
 		chat.AllowOffensiveReplies,
+		chat.ChatID,
 	)
 	return err
 }
