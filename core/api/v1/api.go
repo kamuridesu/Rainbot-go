@@ -7,11 +7,12 @@ import (
 	"os"
 
 	"github.com/kamuridesu/gomechan/core/routes"
+	"github.com/kamuridesu/rainbot-go/internal/bot"
 )
 
-func Serve(addr string) {
+func Serve(addr string, b *bot.Bot) {
 	mux := http.NewServeMux()
-	routes.AddHealthCheck(mux)
+	routes.AddHealthCheck(mux, b.IsAlive)
 
 	slog.Info("Listening on " + addr)
 	err := http.ListenAndServe(addr, mux)

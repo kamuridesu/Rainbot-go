@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -88,4 +89,11 @@ func New(ctx context.Context, name, sqlDialact, dbAddress string, handler Handle
 
 func (b *Bot) Disconnect() {
 	b.Client.Disconnect()
+}
+
+func (b *Bot) IsAlive() error {
+	if !b.Client.IsConnected() {
+		return errors.New("wa client is offline")
+	}
+	return nil
 }

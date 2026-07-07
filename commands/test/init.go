@@ -7,6 +7,6 @@ import (
 
 func init() {
 	commands.NewCommand("test", "", "test", nil, nil, false, false, false, func(m *messages.Message) {
-
-	}, commands.HasQuotedMessage)
+		m.Bot.Disconnect()
+	})
 }

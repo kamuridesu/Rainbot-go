@@ -63,7 +63,7 @@ func main() {
 	defer bot.Disconnect()
 
 	go func() {
-		v1.Serve(":8080")
+		v1.Serve(":8080", bot)
 	}()
 
 	filter.StartCacheEviction(10*time.Minute, 30*time.Minute)
