@@ -9,9 +9,7 @@ on:
 env:
   IMAGE_NAME: rainbot
   CURRENT_TAG: ${{ github.event.release.tag_name }}
-  IMAGE_TAGS: latest ${{ github.sha }} ${{ github.event.release.tag_name }}
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
-  IMAGE_PLATFORMS: linux/amd64, linux/arm64
   REGISTRY_USER: ${{ github.actor }}
   REGISTRY_PASSWORD: ${{ github.token }}
   VALUES_REPO: ${{ secrets.VALUES_REPO }}
@@ -22,26 +20,32 @@ permissions:
   packages: write
 
 jobs:
-  release-ghcr:
-    name: release ghcr
-    runs-on: ubuntu-22.04
+  build-archs:
+    name: Build & Push (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: docker/setup-qemu-action@v3
 
       - name: Build image
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}
-          tags: ${{ env.IMAGE_TAGS }}
-          platforms: ${{ env.IMAGE_PLATFORMS }}
+          tags: ${{ env.CURRENT_TAG }}-${{ matrix.arch }} ${{ github.sha }}-${{ matrix.arch }}
+          platforms: linux/${{ matrix.arch }}
           containerfiles: |
             ./Dockerfile
 
-      - name: Push to ghcr
+      - name: Push arch-specific image to ghcr
         id: push
         uses: redhat-actions/push-to-registry@v2
         with:
@@ -51,15 +55,35 @@ jobs:
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
 
-      - name: Echo outputs
+  create-manifest:
+    name: Create Multi-Arch Manifest
+    runs-on: ubuntu-22.04
+    needs: build-archs
+    steps:
+      - name: Log in to ghcr
+        run: echo "${{ env.REGISTRY_PASSWORD }}" | buildah login -u "${{ env.REGISTRY_USER }}" --password-stdin ${{ env.IMAGE_REGISTRY }}
+
+      - name: Create and push manifests
         run: |
-          echo "${{ toJSON(steps.push.outputs) }}"
+          IMAGE="${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          TAGS=("${{ env.CURRENT_TAG }}" "${{ github.sha }}" "latest")
+
+          for TAG in "${TAGS[@]}"; do
+            if [ -z "$TAG" ]; then continue; fi
+            
+            echo "Creating manifest for $IMAGE:$TAG"
+            buildah manifest create $IMAGE:$TAG
+            
+            buildah manifest add $IMAGE:$TAG docker://$IMAGE:${{ github.sha }}-amd64
+            buildah manifest add $IMAGE:$TAG docker://$IMAGE:${{ github.sha }}-arm64
+            
+            buildah manifest push --all $IMAGE:$TAG docker://$IMAGE:$TAG
+          done
 
   deploy:
     name: "notify cd repo"
     runs-on: ubuntu-22.04
-    needs: release-ghcr
-
+    needs: create-manifest
     steps:
       - name: trigger update in values repo
         uses: peter-evans/repository-dispatch@v4
