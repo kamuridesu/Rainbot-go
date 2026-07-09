@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
+	"github.com/kamuridesu/rainbot-go/core/database/models"
 )
 
 func CheckCustomWord(chat *models.Chat, text string) error {

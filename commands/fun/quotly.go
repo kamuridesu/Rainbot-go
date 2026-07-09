@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/core/modules/quotly"
 	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 	"github.com/kamuridesu/rainbot-go/internal/utils"

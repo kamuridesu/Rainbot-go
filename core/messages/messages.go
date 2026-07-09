@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/bot"
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types/events"

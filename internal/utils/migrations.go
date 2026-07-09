@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kamuridesu/rainbot-go/internal/database/providers"
+	"github.com/kamuridesu/rainbot-go/core/database/providers"
 )
 
 func LoadScripts(dir string) ([]os.DirEntry, error) {

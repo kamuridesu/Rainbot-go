@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/messages"
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 	"go.mau.fi/whatsmeow"

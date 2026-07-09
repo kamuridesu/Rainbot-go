@@ -3,9 +3,9 @@ package database
 import (
 	"errors"
 
-	"github.com/kamuridesu/rainbot-go/internal/database/providers"
-	"github.com/kamuridesu/rainbot-go/internal/database/repositories"
-	"github.com/kamuridesu/rainbot-go/internal/services"
+	"github.com/kamuridesu/rainbot-go/core/database/providers"
+	"github.com/kamuridesu/rainbot-go/core/database/repositories"
+	"github.com/kamuridesu/rainbot-go/core/services"
 )
 
 type DatabaseSingleton struct {

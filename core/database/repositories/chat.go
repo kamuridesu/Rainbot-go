@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"log/slog"
 
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
-	db "github.com/kamuridesu/rainbot-go/internal/database/providers"
+	"github.com/kamuridesu/rainbot-go/core/database/models"
+	db "github.com/kamuridesu/rainbot-go/core/database/providers"
 )
 
 type ChatRepository interface {

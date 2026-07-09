@@ -13,9 +13,9 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/chat"
 	"github.com/kamuridesu/rainbot-go/core/chat/filter"
 	"github.com/kamuridesu/rainbot-go/core/commands"
+	"github.com/kamuridesu/rainbot-go/core/database"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
-	"github.com/kamuridesu/rainbot-go/internal/database"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 
 	_ "github.com/kamuridesu/rainbot-go/commands/admin"

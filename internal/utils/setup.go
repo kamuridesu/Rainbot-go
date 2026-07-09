@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
-	"github.com/kamuridesu/rainbot-go/internal/services"
+	"github.com/kamuridesu/rainbot-go/core/database/models"
+	"github.com/kamuridesu/rainbot-go/core/services"
 )
 
 func validateBool(value string, index int) error {

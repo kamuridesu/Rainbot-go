@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/kamuridesu/rainbot-go/internal/database/models"
-	"github.com/kamuridesu/rainbot-go/internal/database/providers"
+	"github.com/kamuridesu/rainbot-go/core/database/models"
+	"github.com/kamuridesu/rainbot-go/core/database/providers"
 )
 
 type MessageRepository interface {
