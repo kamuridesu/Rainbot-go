@@ -40,7 +40,7 @@ func main() {
 		}
 	}()
 
-	singleton, err := database.InitDatabaseSingleton(os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"))
+	singleton, err := database.InitDatabaseSingleton(os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"), true)
 	if err != nil {
 		panic(err)
 	}

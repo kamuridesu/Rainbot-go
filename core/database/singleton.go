@@ -18,7 +18,7 @@ type DatabaseSingleton struct {
 
 var databaseSingleton *DatabaseSingleton
 
-func InitDatabaseSingleton(driver, parameters string) (*DatabaseSingleton, error) {
+func InitDatabaseSingleton(driver, parameters string, usePartitionManager bool) (*DatabaseSingleton, error) {
 	if databaseSingleton != nil {
 		return databaseSingleton, nil
 	}
@@ -33,7 +33,9 @@ func InitDatabaseSingleton(driver, parameters string) (*DatabaseSingleton, error
 	messageRepo := repositories.NewMessageRepository(db)
 	quotlyRepo := repositories.NewQuotlyRepository(db)
 
-	messageRepo.StartPartitionManager()
+	if usePartitionManager {
+		messageRepo.StartPartitionManager()
+	}
 
 	chatService := services.NewChatService(chatRepo)
 	memberService := services.NewMemberService(memberRepo)
