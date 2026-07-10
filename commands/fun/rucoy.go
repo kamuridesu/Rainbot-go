@@ -2,9 +2,11 @@ package fun
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -14,9 +16,10 @@ import (
 )
 
 type RucoyGuildMember struct {
-	Name   string
-	Level  int
-	Online bool
+	Name          string
+	Level         int
+	Online        bool
+	CharacterPath string
 }
 
 type ParsedRucoyGuildData struct {
@@ -53,19 +56,20 @@ func parseRucoyResponse(data string, guildName string) *ParsedRucoyGuildData {
 		Members: make([]RucoyGuildMember, 0),
 	}
 
-	rowRegex := regexp.MustCompile(`(?s)<tr>\s*<td>\s*<a href="/characters/[^"]+">([^<]+)</a>(.*?)</tr>`)
+	rowRegex := regexp.MustCompile(`(?s)<tr>\s*<td>\s*<a href="(/characters/[^"]+)">([^<]+)</a>(.*?)</tr>`)
 
 	levelRegex := regexp.MustCompile(`<td>\s*(\d+)\s*</td>`)
 
 	matches := rowRegex.FindAllStringSubmatch(data, -1)
 	for _, match := range matches {
-		if len(match) < 3 {
+		if len(match) < 4 {
 			continue
 		}
 
-		name := strings.TrimSpace(match[1])
+		characterPath := strings.TrimSpace(html.UnescapeString(match[1]))
+		name := strings.TrimSpace(html.UnescapeString(match[2]))
 
-		restOfRow := match[2]
+		restOfRow := match[3]
 
 		isOnline := strings.Contains(restOfRow, ">Online</span>")
 
@@ -76,9 +80,10 @@ func parseRucoyResponse(data string, guildName string) *ParsedRucoyGuildData {
 		}
 
 		parsedData.Members = append(parsedData.Members, RucoyGuildMember{
-			Name:   name,
-			Level:  level,
-			Online: isOnline,
+			Name:          name,
+			Level:         level,
+			Online:        isOnline,
+			CharacterPath: characterPath,
 		})
 	}
 
@@ -103,6 +108,117 @@ func RucoyOnlineGuild(m *messages.Message) {
 	}
 
 	m.Reply(rucoyGuild.String(true), emojis.Success)
+}
+
+type RucoyInactiveMember struct {
+	Name        string
+	DaysOffline int
+}
+
+func RucoyAFKGuild(m *messages.Message) {
+	guild := strings.Join(*m.Args, " ")
+
+	requestURL := fmt.Sprintf("https://www.rucoyonline.com/guild/%s", url.PathEscape(guild))
+	var response string
+	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &response, nil)
+	if err != nil {
+		m.Reply("Erro ao ler dados da guilda: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	rucoyGuild := parseRucoyResponse(response, guild)
+	if len(rucoyGuild.Members) == 0 {
+		m.Reply("Guild não encontrada", emojis.Fail)
+		return
+	}
+
+	inactiveMembers := make([]RucoyInactiveMember, 0)
+	for _, member := range rucoyGuild.Members {
+		lastOnline, err := fetchRucoyLastOnlineDays(m, member)
+		if err != nil {
+			m.Reply(fmt.Sprintf("Erro ao ler perfil de %s: %s", member.Name, err.Error()), emojis.Fail)
+			return
+		}
+
+		if lastOnline >= 7 {
+			inactiveMembers = append(inactiveMembers, RucoyInactiveMember{
+				Name:        member.Name,
+				DaysOffline: lastOnline,
+			})
+		}
+	}
+
+	if len(inactiveMembers) == 0 {
+		m.Reply(fmt.Sprintf("Nenhum jogador inativo em %s.", rucoyGuild.Guild), emojis.Success)
+		return
+	}
+
+	sort.SliceStable(inactiveMembers, func(i, j int) bool {
+		return inactiveMembers[i].DaysOffline > inactiveMembers[j].DaysOffline
+	})
+
+	sb := strings.Builder{}
+	fmt.Fprintf(&sb, "Jogadores inativos em %s:\n\n", rucoyGuild.Guild)
+	for _, member := range inactiveMembers {
+		fmt.Fprintf(&sb, "%s %d dias offline\n", member.Name, member.DaysOffline)
+	}
+
+	m.Reply(sb.String(), emojis.Success)
+}
+
+func fetchRucoyLastOnlineDays(m *messages.Message, member RucoyGuildMember) (int, error) {
+	if member.CharacterPath == "" {
+		return 0, fmt.Errorf("link do personagem não encontrado")
+	}
+
+	requestURL := "https://www.rucoyonline.com" + member.CharacterPath
+	var response string
+	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &response, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	return parseRucoyLastOnlineDays(response), nil
+}
+
+func parseRucoyLastOnlineDays(data string) int {
+	lastOnlineRegex := regexp.MustCompile(`(?is)<td>\s*Last online\s*</td>\s*<td>\s*([^<]+)\s*</td>`)
+	match := lastOnlineRegex.FindStringSubmatch(data)
+	if len(match) < 2 {
+		return 0
+	}
+
+	lastOnline := strings.ToLower(strings.TrimSpace(html.UnescapeString(match[1])))
+	lastOnline = strings.Join(strings.Fields(lastOnline), " ")
+	if lastOnline == "" || strings.Contains(lastOnline, "online") {
+		return 0
+	}
+
+	parts := strings.Fields(lastOnline)
+	if len(parts) < 2 {
+		return 0
+	}
+
+	value, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0
+	}
+
+	unit := parts[1]
+	switch {
+	case strings.HasPrefix(unit, "minute"), strings.HasPrefix(unit, "hour"):
+		return 0
+	case strings.HasPrefix(unit, "day"):
+		return value
+	case strings.HasPrefix(unit, "week"):
+		return value * 7
+	case strings.HasPrefix(unit, "month"):
+		return value * 30
+	case strings.HasPrefix(unit, "year"):
+		return value * 365
+	default:
+		return 0
+	}
 }
 
 func Upskill(m *messages.Message) {

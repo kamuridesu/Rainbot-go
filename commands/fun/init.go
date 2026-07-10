@@ -154,6 +154,16 @@ func init() {
 		commands.HasArgs(3),
 	)
 
+	commands.NewCommand("afk",
+		"Mostra jogadores de uma guilda do Rucoy com 7 dias ou mais sem logar",
+		"diversÃ£o",
+		nil,
+		&[]string{"${prefix}${alias} B L A C K O U T"},
+		true, true, false,
+		RucoyAFKGuild,
+		commands.HasArgs(1),
+	)
+
 	commands.NewCommand("quotly",
 		"gera um quote",
 		"diversão",
