@@ -156,7 +156,7 @@ func init() {
 
 	commands.NewCommand("afk",
 		"Mostra jogadores de uma guilda do Rucoy com 7 dias ou mais sem logar",
-		"diversÃ£o",
+		"diversão",
 		nil,
 		&[]string{"${prefix}${alias} B L A C K O U T"},
 		true, true, false,
