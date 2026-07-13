@@ -16,12 +16,10 @@ func NewChatService(repo repositories.ChatRepository) *ChatService {
 }
 
 func (s *ChatService) GetOrCreateChat(jid string) (*models.Chat, error) {
-	chat, err := s.repo.FindById(jid)
+	chat, err := s.Get(jid)
 	if err != nil {
 		return nil, err
-	}
-
-	if chat != nil {
+	} else if chat != nil {
 		return chat, nil
 	}
 
@@ -37,7 +35,24 @@ func (s *ChatService) GetOrCreateChat(jid string) (*models.Chat, error) {
 		ProfanityFilterEnabled: 0,
 		CustomProfanityWords:   "",
 		WarnBanThreshold:       4,
+		AllowAdults:            0,
+		AllowGames:             1,
+		AllowFun:               1,
+		WelcomeMessage:         "",
+		CountMessages:          1,
+		AllowQuote:             1,
+		QuoteNMessages:         300,
+		AllowOffensiveReplies:  1,
 	}, nil
+}
+
+func (s *ChatService) Get(chatJid string) (*models.Chat, error) {
+	chat, err := s.repo.FindById(chatJid)
+	if err != nil {
+		return nil, err
+	}
+
+	return chat, nil
 }
 
 func (s *ChatService) UpdateChat(chat *models.Chat) error {
