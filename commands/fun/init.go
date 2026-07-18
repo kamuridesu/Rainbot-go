@@ -173,6 +173,16 @@ func init() {
 		commands.HasArgs(3),
 	)
 
+	commands.NewCommand("train",
+		"Calcula o melhor monstro para AFK train e powertrain no Rucoy Online",
+		"diversÃ£o",
+		nil,
+		&[]string{"${prefix}${alias} 5 351 391 -50"},
+		true, true, false,
+		RucoyTrain,
+		commands.HasArgs(4),
+	)
+
 	commands.NewCommand("afk",
 		"Mostra jogadores de uma guilda do Rucoy com 7 dias ou mais sem logar",
 		"diversão",
