@@ -3,12 +3,15 @@ package fun
 import (
 	"fmt"
 	"html"
+	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
@@ -110,9 +113,37 @@ func RucoyOnlineGuild(m *messages.Message) {
 	m.Reply(rucoyGuild.String(true), emojis.Success)
 }
 
+func RucoyMenu(m *messages.Message) {
+	m.Reply(`Comandos Rucoy
+
+/online Nome-da-Guild
+Mostra quem esta online na guild.
+
+/upskill skillatual skilldesejada tickrate
+Calcula o tempo para upar skill.
+Exemplo: /upskill 366 400 42000
+
+/uplevel levelatual leveldesejado xp/h
+Calcula o tempo para upar level.
+Exemplo: /uplevel 350 400 20kk
+
+/afk Nome-da-Guild
+Mostra jogadores com 7 dias ou mais sem logar.
+
+/meta LEVEL Nome-da-Guild
+Mostra quem ainda nao bateu a meta.
+Exemplo: /meta 400 Nome-da-Guild`, emojis.Success)
+}
+
 type RucoyInactiveMember struct {
 	Name        string
 	DaysOffline int
+}
+
+type RucoyGoalMember struct {
+	Name    string
+	Level   int
+	Missing int
 }
 
 func RucoyAFKGuild(m *messages.Message) {
@@ -133,7 +164,11 @@ func RucoyAFKGuild(m *messages.Message) {
 	}
 
 	inactiveMembers := make([]RucoyInactiveMember, 0)
-	for _, member := range rucoyGuild.Members {
+	for index, member := range rucoyGuild.Members {
+		if index > 0 {
+			time.Sleep(1500 * time.Millisecond)
+		}
+
 		lastOnline, err := fetchRucoyLastOnlineDays(m, member)
 		if err != nil {
 			m.Reply(fmt.Sprintf("Erro ao ler perfil de %s: %s", member.Name, err.Error()), emojis.Fail)
@@ -166,19 +201,117 @@ func RucoyAFKGuild(m *messages.Message) {
 	m.Reply(sb.String(), emojis.Success)
 }
 
+func RucoyMetaGuild(m *messages.Message) {
+	args := *m.Args
+
+	goal, err := strconv.Atoi(args[0])
+	if err != nil || goal <= 0 {
+		m.Reply("Use: /meta 400 NOME DA GUILD", emojis.Fail)
+		return
+	}
+
+	guild := strings.Join(args[1:], " ")
+	requestURL := fmt.Sprintf("https://www.rucoyonline.com/guild/%s", url.PathEscape(guild))
+	var response string
+	err = utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &response, nil)
+	if err != nil {
+		m.Reply("Erro ao ler dados da guilda: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	rucoyGuild := parseRucoyResponse(response, guild)
+	if len(rucoyGuild.Members) == 0 {
+		m.Reply("Guild nÃ£o encontrada", emojis.Fail)
+		return
+	}
+
+	membersBelowGoal := make([]RucoyGoalMember, 0)
+	for _, member := range rucoyGuild.Members {
+		if member.Level < goal {
+			membersBelowGoal = append(membersBelowGoal, RucoyGoalMember{
+				Name:    member.Name,
+				Level:   member.Level,
+				Missing: goal - member.Level,
+			})
+		}
+	}
+
+	if len(membersBelowGoal) == 0 {
+		m.Reply(fmt.Sprintf("Todos os membros de %s jÃ¡ bateram a meta %d.", rucoyGuild.Guild, goal), emojis.Success)
+		return
+	}
+
+	sort.SliceStable(membersBelowGoal, func(i, j int) bool {
+		if membersBelowGoal[i].Missing == membersBelowGoal[j].Missing {
+			return membersBelowGoal[i].Name < membersBelowGoal[j].Name
+		}
+		return membersBelowGoal[i].Missing < membersBelowGoal[j].Missing
+	})
+
+	sb := strings.Builder{}
+	fmt.Fprintf(&sb, "Meta level %d em %s:\n\n", goal, rucoyGuild.Guild)
+	for _, member := range membersBelowGoal {
+		fmt.Fprintf(&sb, "%s - level %d - falta %d\n", member.Name, member.Level, member.Missing)
+	}
+
+	m.Reply(sb.String(), emojis.Success)
+}
+
 func fetchRucoyLastOnlineDays(m *messages.Message, member RucoyGuildMember) (int, error) {
 	if member.CharacterPath == "" {
 		return 0, fmt.Errorf("link do personagem não encontrado")
 	}
 
 	requestURL := "https://www.rucoyonline.com" + member.CharacterPath
-	var response string
-	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &response, nil)
+	response, err := sendRucoyGETWithRetry(m, requestURL)
 	if err != nil {
 		return 0, err
 	}
 
 	return parseRucoyLastOnlineDays(response), nil
+}
+
+func sendRucoyGETWithRetry(m *messages.Message, requestURL string) (string, error) {
+	delays := []time.Duration{
+		3 * time.Second,
+		7 * time.Second,
+		15 * time.Second,
+	}
+
+	for attempt := 0; attempt <= len(delays); attempt++ {
+		req, err := http.NewRequestWithContext(m.Ctx, http.MethodGet, requestURL, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to build request to %s: %v", requestURL, err)
+		}
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("failed to send request to %s: %v", requestURL, err)
+		}
+
+		resBody, readErr := io.ReadAll(res.Body)
+		res.Body.Close()
+		if readErr != nil {
+			return "", fmt.Errorf("failed to read body from %s: %v", requestURL, readErr)
+		}
+
+		if res.StatusCode == http.StatusTooManyRequests {
+			if attempt == len(delays) {
+				return "", fmt.Errorf("site do Rucoy limitou muitas requisicoes, tente novamente em alguns minutos")
+			}
+
+			time.Sleep(delays[attempt])
+			continue
+		}
+
+		if res.StatusCode > 400 {
+			return "", fmt.Errorf("error : status is %d and body is %s", res.StatusCode, string(resBody))
+		}
+
+		return string(resBody), nil
+	}
+
+	return "", fmt.Errorf("site do Rucoy limitou muitas requisicoes, tente novamente em alguns minutos")
 }
 
 func parseRucoyLastOnlineDays(data string) int {
@@ -279,6 +412,69 @@ func Upskill(m *messages.Message) {
 	), emojis.Success)
 }
 
+func Uplevel(m *messages.Message) {
+	args := *m.Args
+
+	fromLevel, err := strconv.Atoi(args[0])
+	if err != nil {
+		m.Reply("level_atual precisa ser um numero. Exemplo: /uplevel 350 400 20kk", emojis.Fail)
+		return
+	}
+
+	toLevel, err := strconv.Atoi(args[1])
+	if err != nil {
+		m.Reply("level_desejado precisa ser um numero. Exemplo: /uplevel 350 400 20kk", emojis.Fail)
+		return
+	}
+
+	xpPerHour, err := parseRucoyXPPerHour(args[2])
+	if err != nil {
+		m.Reply("xp_por_hora precisa ser um numero. Exemplo: /uplevel 350 400 20kk", emojis.Fail)
+		return
+	}
+
+	if fromLevel <= 0 {
+		m.Reply("O level atual precisa ser maior que zero.", emojis.Fail)
+		return
+	}
+	if toLevel <= fromLevel {
+		m.Reply("O level desejado precisa ser maior que o level atual.", emojis.Fail)
+		return
+	}
+	if xpPerHour <= 0 {
+		m.Reply("O XP/h precisa ser maior que zero.", emojis.Fail)
+		return
+	}
+
+	params := url.Values{}
+	params.Set("fromLevel", strconv.Itoa(fromLevel))
+	params.Set("toLevel", strconv.Itoa(toLevel))
+
+	requestURL := "https://rucoystatsapi.net/api/calculator/amount-exp?" + params.Encode()
+
+	var result string
+	err = utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &result, nil)
+	if err != nil {
+		m.Reply("Erro ao calcular uplevel: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	xpNeeded, err := strconv.ParseInt(strings.TrimSpace(result), 10, 64)
+	if err != nil {
+		m.Reply("Erro ao ler XP retornado pelo RucoyStats.", emojis.Fail)
+		return
+	}
+
+	m.Reply(fmt.Sprintf(
+		"Uplevel Rucoy\n\nLevel: %d -> %d\nXP/h: %s\nXP faltando: %s\nTempo estimado: %s",
+		fromLevel,
+		toLevel,
+		formatRucoyNumber(xpPerHour),
+		formatRucoyNumber(xpNeeded),
+		formatRucoyDuration(xpNeeded, xpPerHour),
+	), emojis.Success)
+}
+
 func formatUpskillTime(raw string) string {
 	parts := strings.Split(strings.TrimSpace(raw), ":")
 
@@ -298,4 +494,59 @@ func formatUpskillTime(raw string) string {
 	default:
 		return raw
 	}
+}
+
+func parseRucoyXPPerHour(raw string) (int64, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	value = strings.ReplaceAll(value, " ", "")
+	value = strings.ReplaceAll(value, "_", "")
+	value = strings.ReplaceAll(value, ",", ".")
+
+	multiplier := float64(1)
+	switch {
+	case strings.HasSuffix(value, "kk"):
+		multiplier = 1000000
+		value = strings.TrimSuffix(value, "kk")
+	case strings.HasSuffix(value, "m"):
+		multiplier = 1000000
+		value = strings.TrimSuffix(value, "m")
+	case strings.HasSuffix(value, "k"):
+		multiplier = 1000
+		value = strings.TrimSuffix(value, "k")
+	}
+
+	number, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, err
+	}
+	if math.IsNaN(number) || math.IsInf(number, 0) || number <= 0 {
+		return 0, fmt.Errorf("invalid xp per hour")
+	}
+
+	return int64(number * multiplier), nil
+}
+
+func formatRucoyDuration(xpNeeded int64, xpPerHour int64) string {
+	totalMinutes := int64(math.Ceil((float64(xpNeeded) / float64(xpPerHour)) * 60))
+	hours := totalMinutes / 60
+	minutes := totalMinutes % 60
+
+	if hours == 0 {
+		return fmt.Sprintf("%d minutos", minutes)
+	}
+
+	return fmt.Sprintf("%d horas e %d minutos", hours, minutes)
+}
+
+func formatRucoyNumber(value int64) string {
+	raw := strconv.FormatInt(value, 10)
+	parts := make([]string, 0, len(raw)/3+1)
+
+	for len(raw) > 3 {
+		parts = append([]string{raw[len(raw)-3:]}, parts...)
+		raw = raw[:len(raw)-3]
+	}
+
+	parts = append([]string{raw}, parts...)
+	return strings.Join(parts, ".")
 }

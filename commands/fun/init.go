@@ -134,6 +134,15 @@ func init() {
 	commands.NewCommand("video", "Baixa um video", "diversão", nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
 	commands.NewCommand("music", "Baixa uma musica", "diversão", nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
 
+	commands.NewHiddenCommand("rucoy",
+		"Mostra o menu de comandos do Rucoy Online",
+		"diversÃ£o",
+		nil,
+		nil,
+		true, true, false,
+		RucoyMenu,
+	)
+
 	commands.NewCommand("ronline",
 		"Mostra os membros online de uma guilda no Rucoy online",
 		"diversão",
@@ -154,6 +163,16 @@ func init() {
 		commands.HasArgs(3),
 	)
 
+	commands.NewCommand("uplevel",
+		"Calcula quanto tempo demora para ir de um level ate outro no Rucoy Online",
+		"diversÃ£o",
+		nil,
+		&[]string{"${prefix}${alias} 350 400 20kk"},
+		true, true, false,
+		Uplevel,
+		commands.HasArgs(3),
+	)
+
 	commands.NewCommand("afk",
 		"Mostra jogadores de uma guilda do Rucoy com 7 dias ou mais sem logar",
 		"diversão",
@@ -162,6 +181,16 @@ func init() {
 		true, true, false,
 		RucoyAFKGuild,
 		commands.HasArgs(1),
+	)
+
+	commands.NewCommand("meta",
+		"Mostra membros de uma guilda do Rucoy que ainda nao bateram uma meta de level",
+		"diversÃ£o",
+		nil,
+		&[]string{"${prefix}${alias} 400 B L A C K O U T"},
+		true, true, false,
+		RucoyMetaGuild,
+		commands.HasArgs(2),
 	)
 
 	commands.NewCommand("quotly",
