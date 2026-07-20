@@ -23,7 +23,6 @@ type Command struct {
 	IsAdult     bool
 	IsGame      bool
 	IsFun       bool
-	Hidden      bool
 	Callable    Callback
 	Guards      []func(message *m.Message) error
 }
@@ -123,25 +122,6 @@ func NewCommand(name,
 	return &command, nil
 }
 
-func NewHiddenCommand(name,
-	desc,
-	category string,
-	aliases,
-	examples *[]string,
-	isFun,
-	isGame,
-	isAdult bool,
-	callback Callback,
-	guards ...func(message *m.Message) error) (*Command, error) {
-	command, err := NewCommand(name, desc, category, aliases, examples, isFun, isGame, isAdult, callback, guards...)
-	if err != nil {
-		return nil, err
-	}
-
-	command.Hidden = true
-	return command, nil
-}
-
 func GetLoadedCommands() *CommandList {
 	return loadedCommands
 }
@@ -149,9 +129,6 @@ func GetLoadedCommands() *CommandList {
 func GetCategories() *[]string {
 	categories := []string{}
 	for _, command := range *loadedCommands {
-		if command.Hidden {
-			continue
-		}
 		if !slices.Contains(categories, command.Category) {
 			categories = append(categories, command.Category)
 		}
@@ -162,9 +139,6 @@ func GetCategories() *[]string {
 func GetCommandsFromCategory(category string) *CommandList {
 	var commands CommandList
 	for _, command := range *loadedCommands {
-		if command.Hidden {
-			continue
-		}
 		if command.Category == category {
 			commands = append(commands, command)
 		}
