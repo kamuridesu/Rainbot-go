@@ -113,32 +113,6 @@ func RucoyOnlineGuild(m *messages.Message) {
 	m.Reply(rucoyGuild.String(true), emojis.Success)
 }
 
-func RucoyMenu(m *messages.Message) {
-	m.Reply(`Comandos Rucoy
-
-/online Nome-da-Guild
-Mostra quem esta online na guild.
-
-/upskill skillatual skilldesejada tickrate
-Calcula o tempo para upar skill.
-Exemplo: /upskill 366 400 42000
-
-/uplevel levelatual leveldesejado xp/h
-Calcula o tempo para upar level.
-Exemplo: /uplevel 350 400 20kk
-
-/train arma level skill add
-Mostra melhor monstro para AFK train e powertrain.
-Exemplo: /train 5 351 391 -50
-
-/afk Nome-da-Guild
-Mostra jogadores com 7 dias ou mais sem logar.
-
-/meta LEVEL Nome-da-Guild
-Mostra quem ainda nao bateu a meta.
-Exemplo: /meta 400 Nome-da-Guild`, emojis.Success)
-}
-
 type RucoyInactiveMember struct {
 	Name        string
 	DaysOffline int
