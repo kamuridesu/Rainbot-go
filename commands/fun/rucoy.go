@@ -124,6 +124,20 @@ type RucoyGoalMember struct {
 	Missing int
 }
 
+type RucoyCharacterInfo struct {
+	Name       string
+	Level      int
+	Guild      string
+	Title      string
+	LastOnline string
+}
+
+type RucoyLevelTableEntry struct {
+	Level              int   `json:"level"`
+	ExpLoss            int64 `json:"expLoss"`
+	GoldBlackOneNeeded int64 `json:"goldBlackOneNeeded"`
+}
+
 type RucoyTrainingMonster struct {
 	Name       string
 	Defense    int
@@ -155,13 +169,13 @@ type RucoyTrainingAlternative struct {
 }
 
 const rucoyMinimumTrainingDurationSeconds = 8 * 60
+const rucoyAFKProfileDelay = 2500 * time.Millisecond
 
 func RucoyAFKGuild(m *messages.Message) {
 	guild := strings.Join(*m.Args, " ")
 
 	requestURL := fmt.Sprintf("https://www.rucoyonline.com/guild/%s", url.PathEscape(guild))
-	var response string
-	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &response, nil)
+	response, err := sendRucoyGETWithRetry(m, requestURL)
 	if err != nil {
 		m.Reply("Erro ao ler dados da guilda: "+err.Error(), emojis.Fail)
 		return
@@ -174,15 +188,16 @@ func RucoyAFKGuild(m *messages.Message) {
 	}
 
 	inactiveMembers := make([]RucoyInactiveMember, 0)
+	failedMembers := make([]string, 0)
 	for index, member := range rucoyGuild.Members {
 		if index > 0 {
-			time.Sleep(1500 * time.Millisecond)
+			time.Sleep(rucoyAFKProfileDelay)
 		}
 
 		lastOnline, err := fetchRucoyLastOnlineDays(m, member)
 		if err != nil {
-			m.Reply(fmt.Sprintf("Erro ao ler perfil de %s: %s", member.Name, err.Error()), emojis.Fail)
-			return
+			failedMembers = append(failedMembers, member.Name)
+			continue
 		}
 
 		if lastOnline >= 7 {
@@ -193,19 +208,26 @@ func RucoyAFKGuild(m *messages.Message) {
 		}
 	}
 
-	if len(inactiveMembers) == 0 {
-		m.Reply(fmt.Sprintf("Nenhum jogador inativo em %s.", rucoyGuild.Guild), emojis.Success)
-		return
-	}
-
 	sort.SliceStable(inactiveMembers, func(i, j int) bool {
 		return inactiveMembers[i].DaysOffline > inactiveMembers[j].DaysOffline
 	})
 
 	sb := strings.Builder{}
-	fmt.Fprintf(&sb, "Jogadores inativos em %s:\n\n", rucoyGuild.Guild)
-	for _, member := range inactiveMembers {
-		fmt.Fprintf(&sb, "%s %d dias offline\n", member.Name, member.DaysOffline)
+	if len(inactiveMembers) > 0 {
+		fmt.Fprintf(&sb, "Jogadores inativos em %s:\n\n", rucoyGuild.Guild)
+		for _, member := range inactiveMembers {
+			fmt.Fprintf(&sb, "%s %d dias offline\n", member.Name, member.DaysOffline)
+		}
+	} else if len(failedMembers) == len(rucoyGuild.Members) {
+		fmt.Fprintf(&sb, "Nao consegui verificar os perfis de %s agora.", rucoyGuild.Guild)
+	} else if len(failedMembers) > 0 {
+		fmt.Fprintf(&sb, "Nenhum jogador inativo encontrado nos perfis verificados em %s.", rucoyGuild.Guild)
+	} else {
+		fmt.Fprintf(&sb, "Nenhum jogador inativo em %s.", rucoyGuild.Guild)
+	}
+
+	if len(failedMembers) > 0 {
+		fmt.Fprintf(&sb, "\n\nNao consegui verificar %d perfil(is) agora por limite do site. Tente novamente em alguns minutos.", len(failedMembers))
 	}
 
 	m.Reply(sb.String(), emojis.Success)
@@ -267,6 +289,77 @@ func RucoyMetaGuild(m *messages.Message) {
 	m.Reply(sb.String(), emojis.Success)
 }
 
+func RucoyInfo(m *messages.Message) {
+	player := strings.Join(*m.Args, " ")
+	requestURL := fmt.Sprintf("https://www.rucoyonline.com/characters/%s", url.PathEscape(player))
+
+	response, err := sendRucoyGETWithRetry(m, requestURL)
+	if err != nil {
+		if strings.Contains(err.Error(), "status is 404") {
+			m.Reply("Jogador nao encontrado", emojis.Fail)
+			return
+		}
+		m.Reply("Erro ao ler dados do jogador: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	info := parseRucoyCharacterInfo(response)
+	if info.Name == "" || info.Level == 0 {
+		m.Reply("Jogador nao encontrado", emojis.Fail)
+		return
+	}
+
+	if info.Guild == "" {
+		info.Guild = "-"
+	}
+	if info.Title == "" {
+		info.Title = "-"
+	}
+
+	levelTableEntry, err := fetchRucoyLevelTableEntry(m, info.Level)
+	if err != nil {
+		m.Reply("Erro ao ler tabela de XP do RucoyStats: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	statusLabel := "Ultima vez online"
+	statusValue := info.LastOnline
+	if statusValue == "" {
+		statusValue = "-"
+	} else if strings.Contains(strings.ToLower(statusValue), "online") {
+		statusLabel = "Status"
+		statusValue = "Online"
+	}
+
+	m.Reply(fmt.Sprintf(
+		"Info Rucoy\n\nNome: %s\nLevel: %d\nGuild: %s\nTitulo: %s\n%s: %s\nBlack Skull: %s gold\nXP Mobwin: %s XP",
+		info.Name,
+		info.Level,
+		info.Guild,
+		info.Title,
+		statusLabel,
+		statusValue,
+		formatRucoyNumber(levelTableEntry.GoldBlackOneNeeded),
+		formatRucoyNumber(absRucoyNumber(levelTableEntry.ExpLoss)),
+	), emojis.Success)
+}
+
+func fetchRucoyLevelTableEntry(m *messages.Message, level int) (RucoyLevelTableEntry, error) {
+	var levelTable []RucoyLevelTableEntry
+	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, "https://rucoystatsapi.net/api/calculator/experiences", &levelTable, nil)
+	if err != nil {
+		return RucoyLevelTableEntry{}, err
+	}
+
+	for _, entry := range levelTable {
+		if entry.Level == level {
+			return entry, nil
+		}
+	}
+
+	return RucoyLevelTableEntry{}, fmt.Errorf("level %d nao encontrado", level)
+}
+
 func fetchRucoyLastOnlineDays(m *messages.Message, member RucoyGuildMember) (int, error) {
 	if member.CharacterPath == "" {
 		return 0, fmt.Errorf("link do personagem não encontrado")
@@ -283,9 +376,10 @@ func fetchRucoyLastOnlineDays(m *messages.Message, member RucoyGuildMember) (int
 
 func sendRucoyGETWithRetry(m *messages.Message, requestURL string) (string, error) {
 	delays := []time.Duration{
-		3 * time.Second,
-		7 * time.Second,
+		5 * time.Second,
 		15 * time.Second,
+		30 * time.Second,
+		60 * time.Second,
 	}
 
 	for attempt := 0; attempt <= len(delays); attempt++ {
@@ -293,6 +387,9 @@ func sendRucoyGETWithRetry(m *messages.Message, requestURL string) (string, erro
 		if err != nil {
 			return "", fmt.Errorf("failed to build request to %s: %v", requestURL, err)
 		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Rainbot-go Rucoy commands)")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7")
 
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -310,11 +407,11 @@ func sendRucoyGETWithRetry(m *messages.Message, requestURL string) (string, erro
 				return "", fmt.Errorf("site do Rucoy limitou muitas requisicoes, tente novamente em alguns minutos")
 			}
 
-			time.Sleep(delays[attempt])
+			time.Sleep(rucoyRetryDelay(res, delays[attempt]))
 			continue
 		}
 
-		if res.StatusCode > 400 {
+		if res.StatusCode >= 400 {
 			return "", fmt.Errorf("error : status is %d and body is %s", res.StatusCode, string(resBody))
 		}
 
@@ -322,6 +419,65 @@ func sendRucoyGETWithRetry(m *messages.Message, requestURL string) (string, erro
 	}
 
 	return "", fmt.Errorf("site do Rucoy limitou muitas requisicoes, tente novamente em alguns minutos")
+}
+
+func rucoyRetryDelay(res *http.Response, fallback time.Duration) time.Duration {
+	retryAfter := strings.TrimSpace(res.Header.Get("Retry-After"))
+	if retryAfter == "" {
+		return fallback
+	}
+
+	seconds, err := strconv.Atoi(retryAfter)
+	if err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+
+	retryAt, err := http.ParseTime(retryAfter)
+	if err != nil {
+		return fallback
+	}
+
+	delay := time.Until(retryAt)
+	if delay <= 0 {
+		return fallback
+	}
+	return delay
+}
+
+func parseRucoyCharacterInfo(data string) RucoyCharacterInfo {
+	info := RucoyCharacterInfo{}
+	rowRegex := regexp.MustCompile(`(?is)<tr>\s*<td>\s*([^<]+?)\s*</td>\s*<td>\s*(.*?)\s*</td>\s*</tr>`)
+
+	for _, match := range rowRegex.FindAllStringSubmatch(data, -1) {
+		if len(match) < 3 {
+			continue
+		}
+
+		field := strings.ToLower(stripRucoyHTML(match[1]))
+		value := stripRucoyHTML(match[2])
+
+		switch field {
+		case "name":
+			info.Name = value
+		case "level":
+			info.Level, _ = strconv.Atoi(value)
+		case "guild":
+			info.Guild = value
+		case "title":
+			info.Title = value
+		case "last online":
+			info.LastOnline = value
+		}
+	}
+
+	return info
+}
+
+func stripRucoyHTML(value string) string {
+	tagRegex := regexp.MustCompile(`(?s)<[^>]+>`)
+	value = tagRegex.ReplaceAllString(value, " ")
+	value = html.UnescapeString(value)
+	return strings.Join(strings.Fields(value), " ")
 }
 
 func parseRucoyLastOnlineDays(data string) int {
@@ -875,6 +1031,13 @@ func formatRucoyDuration(xpNeeded int64, xpPerHour int64) string {
 	}
 
 	return fmt.Sprintf("%d horas e %d minutos", hours, minutes)
+}
+
+func absRucoyNumber(value int64) int64 {
+	if value < 0 {
+		return -value
+	}
+	return value
 }
 
 func formatRucoyNumber(value int64) string {

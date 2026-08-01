@@ -133,10 +133,10 @@ func init() {
 
 	commands.NewCommand("video", "Baixa um video", "diversão", nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
 	commands.NewCommand("music", "Baixa uma musica", "diversão", nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
-	commands.NewCommand("ronline",
+	commands.NewCommand("online",
 		"Mostra os membros online de uma guilda no Rucoy online",
 		"rucoy",
-		&[]string{"online"},
+		&[]string{"ronline"},
 		nil,
 		true, true, false,
 		RucoyOnlineGuild,
@@ -180,6 +180,16 @@ func init() {
 		&[]string{"${prefix}${alias} B L A C K O U T"},
 		true, true, false,
 		RucoyAFKGuild,
+		commands.HasArgs(1),
+	)
+
+	commands.NewCommand("info",
+		"Mostra informacoes de um jogador do Rucoy Online",
+		"rucoy",
+		nil,
+		&[]string{"${prefix}${alias} Nome do Jogador"},
+		true, true, false,
+		RucoyInfo,
 		commands.HasArgs(1),
 	)
 
