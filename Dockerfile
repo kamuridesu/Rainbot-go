@@ -1,5 +1,4 @@
 FROM golang:1.25.5-alpine AS build
-ARG TARGETARCH
 ENV CGO_ENABLED=1
 RUN apk add --no-cache gcc musl-dev upx 
 
@@ -13,6 +12,7 @@ COPY ./*.go /workspace/
 COPY ./internal /workspace/internal
 COPY ./core /workspace/core
 COPY ./commands/ /workspace/commands
+COPY ./resources/ /workspace/resources
 RUN orchestrion pin
 RUN go build -ldflags='-s -w -extldflags "-static"' -toolexec="orchestrion toolexec" -o "default-app"
 RUN upx --best --lzma /workspace/default-app
