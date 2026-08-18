@@ -29,6 +29,14 @@ func (s *QuotlyService) DeleteQuotly(chatJid, fileId string) error {
 	return s.repo.Delete(chatJid, fileId)
 }
 
+func (s *QuotlyService) SaveSentMessage(msg *models.QuotlyMessage) error {
+	return s.repo.CreateSentMessage(msg)
+}
+
+func (s *QuotlyService) GetSentMessageByStanzaID(chatJid, stanzaId string) (*models.QuotlyMessage, error) {
+	return s.repo.FindSentMessageByStanzaID(chatJid, stanzaId)
+}
+
 func (s *QuotlyService) Close() error {
 	return s.repo.Close()
 }

@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS quotly_message (
+    stanzaId TEXT PRIMARY KEY NOT NULL,
+    chatId TEXT NOT NULL,
+    fileId TEXT NOT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(chatId, fileId) REFERENCES quotly(chatId, fileId) ON DELETE CASCADE
+);

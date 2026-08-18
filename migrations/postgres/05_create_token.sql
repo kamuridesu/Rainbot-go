@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS token (
+    token VARCHAR(255) PRIMARY KEY NOT NULL,
+    chatId VARCHAR(255) NOT NULL,
+    createdAt TIMESTAMP NOT NULL,
+    expiresAt TIMESTAMP NOT NULL,
+    FOREIGN KEY(chatId) REFERENCES chat(chatId)
+);

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"log/slog"
 	"math/rand/v2"
+	"time"
 
+	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
@@ -48,8 +50,19 @@ func RandomQuoteDrop(m *messages.Message) {
 	}
 
 	slog.Info("Sending random quote", "fileId", randomQuote.FileId)
-	_, err = m.ReplySticker(data, messages.StickerMessage)
+	resp, err := m.ReplySticker(data, messages.StickerMessage)
 	if err != nil {
 		slog.Error("Failed to send random quote sticker", "err", err)
+		return
+	}
+
+	err = m.Bot.DB.Quotly.SaveSentMessage(&models.QuotlyMessage{
+		StanzaID:  resp.ID,
+		ChatID:    m.Chat.ChatID,
+		FileId:    randomQuote.FileId,
+		CreatedAt: time.Now(),
+	})
+	if err != nil {
+		slog.Error("db error while saving quotly sent message", "err", err)
 	}
 }

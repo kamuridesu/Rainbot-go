@@ -886,11 +886,8 @@ func writeRucoyTrainingWeaponAlternatives(sb *strings.Builder, currentAttack int
 	}
 
 	sb.WriteString("Sugestoes com arma de treino:\n")
-	limit := 5
-	if len(alternatives) < limit {
-		limit = len(alternatives)
-	}
-	for i := 0; i < limit; i++ {
+	limit := min(len(alternatives), 5)
+	for i := range limit {
 		alternative := alternatives[i]
 		fmt.Fprintf(
 			sb,

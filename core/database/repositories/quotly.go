@@ -1,15 +1,21 @@
 package repositories
 
 import (
+	"database/sql"
+
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/providers"
 )
+
+const maxSentMessagesPerFile = 5
 
 type QuotlyRepository interface {
 	FindAllByChat(chatJid string) ([]*models.QuotlyFile, error)
 	FindRandomByChat(chatJid string) (*models.QuotlyFile, error)
 	Create(quotly *models.QuotlyFile) error
 	Delete(chatJid, fileId string) error
+	CreateSentMessage(msg *models.QuotlyMessage) error
+	FindSentMessageByStanzaID(chatJid, stanzaId string) (*models.QuotlyMessage, error)
 	Close() error
 }
 
@@ -71,4 +77,47 @@ func (r *quotlyRepository) Delete(chatJid, fileId string) error {
 		"DELETE FROM quotly WHERE chatId = ? AND fileId = ?",
 	), chatJid, fileId)
 	return err
+}
+
+func (r *quotlyRepository) CreateSentMessage(msg *models.QuotlyMessage) error {
+	tx, err := r.db.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(r.db.GetQuery(
+		"INSERT INTO quotly_message (stanzaId, chatId, fileId, createdAt) VALUES (?, ?, ?, ?)",
+	), msg.StanzaID, msg.ChatID, msg.FileId, msg.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(r.db.GetQuery(
+		`DELETE FROM quotly_message WHERE chatId = ? AND fileId = ? AND stanzaId NOT IN (
+			SELECT stanzaId FROM quotly_message WHERE chatId = ? AND fileId = ? ORDER BY createdAt DESC LIMIT ?
+		)`,
+	), msg.ChatID, msg.FileId, msg.ChatID, msg.FileId, maxSentMessagesPerFile)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *quotlyRepository) FindSentMessageByStanzaID(chatJid, stanzaId string) (*models.QuotlyMessage, error) {
+	var msg models.QuotlyMessage
+
+	err := r.db.DB.QueryRow(r.db.GetQuery(
+		"SELECT stanzaId, chatId, fileId, createdAt FROM quotly_message WHERE chatId = ? AND stanzaId = ?",
+	), chatJid, stanzaId).Scan(&msg.StanzaID, &msg.ChatID, &msg.FileId, &msg.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &msg, nil
 }
