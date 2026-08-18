@@ -28,7 +28,7 @@ func Casal(m *messages.Message) {
 	for range 2 {
 		for {
 			mem := info.Participants[rand.IntN(totalMembers)].LID.ToNonAD()
-			if mem.String() != m.Bot.Client.Store.LID.ToNonAD().String() && !slices.Contains(members, mem) {
+			if mem.String() != m.Bot.Client.Store().LID.ToNonAD().String() && !slices.Contains(members, mem) {
 				members = append(members, mem)
 				break
 			}

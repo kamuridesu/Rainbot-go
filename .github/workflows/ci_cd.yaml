@@ -20,9 +20,29 @@ permissions:
   packages: write
 
 jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg webp
+
+      - name: Run tests
+        run: go test ./...
+
   build-archs:
     name: Build & Push (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    needs: test
     strategy:
       fail-fast: false
       matrix:

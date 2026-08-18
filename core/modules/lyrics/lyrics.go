@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const (
+var (
 	rootUrl          = "https://www.letras.mus.br"
 	searchApiRootUrl = "https://solr.sscdn.co/letras/m1/?callback=LetrasSug&q="
 )

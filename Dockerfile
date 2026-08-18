@@ -18,10 +18,11 @@ RUN go build -ldflags='-s -w -extldflags "-static"' -toolexec="orchestrion toole
 RUN upx --best --lzma /workspace/default-app
 
 FROM alpine:3.21
-
-RUN apk add --no-cache ca-certificates tzdata libwebp-tools ffmpeg
+ENV TZ=America/Fortaleza
+RUN apk add --no-cache ca-certificates tzdata libwebp-tools ffmpeg \
+    && cp /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
 WORKDIR /app
-
 COPY ./migrations /app/migrations
 COPY --from=build /workspace/default-app /usr/local/bin/default-app
 

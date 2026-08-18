@@ -37,6 +37,7 @@ func Setup(m *messages.Message) {
 func Bug(m *messages.Message) {
 	if m.Bot.CreatorNumber == nil {
 		m.Reply("Nenhum numero configurado.", emojis.Fail)
+		return
 	}
 	message := fmt.Sprintf("Bug reportado: \n\n%s", strings.Join(*m.Args, " "))
 

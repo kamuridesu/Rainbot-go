@@ -36,7 +36,7 @@ func IsAdmin(m *messages.Message) error {
 
 func IsBotAdmin(m *messages.Message) error {
 
-	botJid := m.Bot.Client.Store.GetLID().ToNonAD().String()
+	botJid := m.Bot.Client.Store().GetLID().ToNonAD().String()
 
 	gInfo, err := m.Bot.Client.GetGroupInfo(m.Ctx, m.RawEvent.Info.Chat)
 	if err != nil {

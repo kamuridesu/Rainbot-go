@@ -18,6 +18,12 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 )
 
+// var rather than const so tests can point these at a local httptest server.
+var (
+	rucoyBaseURL     = "https://www.rucoyonline.com"
+	rucoyStatsApiURL = "https://rucoystatsapi.net"
+)
+
 type RucoyGuildMember struct {
 	Name          string
 	Level         int
@@ -96,7 +102,7 @@ func parseRucoyResponse(data string, guildName string) *ParsedRucoyGuildData {
 func RucoyOnlineGuild(m *messages.Message) {
 	guild := strings.Join(*m.Args, " ")
 
-	url := fmt.Sprintf("https://www.rucoyonline.com/guild/%s", url.PathEscape(guild))
+	url := fmt.Sprintf("%s/guild/%s", rucoyBaseURL, url.PathEscape(guild))
 	var response string
 	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, url, &response, nil)
 	if err != nil {
@@ -174,7 +180,7 @@ const rucoyAFKProfileDelay = 2500 * time.Millisecond
 func RucoyAFKGuild(m *messages.Message) {
 	guild := strings.Join(*m.Args, " ")
 
-	requestURL := fmt.Sprintf("https://www.rucoyonline.com/guild/%s", url.PathEscape(guild))
+	requestURL := fmt.Sprintf("%s/guild/%s", rucoyBaseURL, url.PathEscape(guild))
 	response, err := sendRucoyGETWithRetry(m, requestURL)
 	if err != nil {
 		m.Reply("Erro ao ler dados da guilda: "+err.Error(), emojis.Fail)
@@ -243,7 +249,7 @@ func RucoyMetaGuild(m *messages.Message) {
 	}
 
 	guild := strings.Join(args[1:], " ")
-	requestURL := fmt.Sprintf("https://www.rucoyonline.com/guild/%s", url.PathEscape(guild))
+	requestURL := fmt.Sprintf("%s/guild/%s", rucoyBaseURL, url.PathEscape(guild))
 	var response string
 	err = utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &response, nil)
 	if err != nil {
@@ -291,7 +297,7 @@ func RucoyMetaGuild(m *messages.Message) {
 
 func RucoyInfo(m *messages.Message) {
 	player := strings.Join(*m.Args, " ")
-	requestURL := fmt.Sprintf("https://www.rucoyonline.com/characters/%s", url.PathEscape(player))
+	requestURL := fmt.Sprintf("%s/characters/%s", rucoyBaseURL, url.PathEscape(player))
 
 	response, err := sendRucoyGETWithRetry(m, requestURL)
 	if err != nil {
@@ -346,7 +352,7 @@ func RucoyInfo(m *messages.Message) {
 
 func fetchRucoyLevelTableEntry(m *messages.Message, level int) (RucoyLevelTableEntry, error) {
 	var levelTable []RucoyLevelTableEntry
-	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, "https://rucoystatsapi.net/api/calculator/experiences", &levelTable, nil)
+	err := utils.SendGETRequest(m.Ctx, http.DefaultClient, rucoyStatsApiURL+"/api/calculator/experiences", &levelTable, nil)
 	if err != nil {
 		return RucoyLevelTableEntry{}, err
 	}
@@ -365,7 +371,7 @@ func fetchRucoyLastOnlineDays(m *messages.Message, member RucoyGuildMember) (int
 		return 0, fmt.Errorf("link do personagem não encontrado")
 	}
 
-	requestURL := "https://www.rucoyonline.com" + member.CharacterPath
+	requestURL := rucoyBaseURL + member.CharacterPath
 	response, err := sendRucoyGETWithRetry(m, requestURL)
 	if err != nil {
 		return 0, err
@@ -560,7 +566,7 @@ func Upskill(m *messages.Message) {
 	params.Set("toLevel", strconv.Itoa(toSkill))
 	params.Set("trainMode", strconv.Itoa(tickrate))
 
-	requestURL := "https://rucoystatsapi.net/api/calculator/amount-time?" + params.Encode()
+	requestURL := rucoyStatsApiURL + "/api/calculator/amount-time?" + params.Encode()
 
 	var result string
 	err = utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &result, nil)
@@ -616,7 +622,7 @@ func Uplevel(m *messages.Message) {
 	params.Set("fromLevel", strconv.Itoa(fromLevel))
 	params.Set("toLevel", strconv.Itoa(toLevel))
 
-	requestURL := "https://rucoystatsapi.net/api/calculator/amount-exp?" + params.Encode()
+	requestURL := rucoyStatsApiURL + "/api/calculator/amount-exp?" + params.Encode()
 
 	var result string
 	err = utils.SendGETRequest(m.Ctx, http.DefaultClient, requestURL, &result, nil)
