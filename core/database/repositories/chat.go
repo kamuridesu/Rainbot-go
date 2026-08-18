@@ -56,6 +56,7 @@ func (r *chatRepository) FindById(jid string) (*models.Chat, error) {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
+		return nil, err
 	}
 	return &chat, nil
 }

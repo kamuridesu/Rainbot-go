@@ -18,7 +18,7 @@ import (
 
 type Bot struct {
 	Name          *string
-	Client        *whatsmeow.Client
+	Client        WhatsAppClient
 	DB            *database.DatabaseSingleton
 	StartTime     time.Time
 	CreatorNumber *string
@@ -75,7 +75,7 @@ func New(ctx context.Context, name, sqlDialact, dbAddress string, handler Handle
 
 	bot := Bot{
 		Name:          &name,
-		Client:        client,
+		Client:        &whatsmeowClientAdapter{client},
 		DB:            singleton,
 		StartTime:     time.Now(),
 		CreatorNumber: creatorN,

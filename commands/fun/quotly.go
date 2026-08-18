@@ -75,7 +75,7 @@ func HandleQuoteCommand(m *messages.Message) {
 		}
 
 		qJid, _ := types.ParseJID(msg.SenderJID)
-		qContact, err := m.Bot.Client.Store.Contacts.GetContact(m.Ctx, qJid)
+		qContact, err := m.Bot.Client.Store().Contacts.GetContact(m.Ctx, qJid)
 		name := ""
 		if err == nil && qContact.Found {
 			name = qContact.PushName

@@ -136,7 +136,7 @@ func resolveMentions(ctx context.Context, bot *bot.Bot, chatJID string, rawMenti
 		if strings.HasSuffix(jid, "whatsapp.net") {
 			j := types.NewJID(strings.TrimSuffix(jid, "@s.whatsapp.net"), types.DefaultUserServer)
 
-			resolvedJID, err := bot.Client.Store.LIDs.GetLIDForPN(ctx, j)
+			resolvedJID, err := bot.Client.Store().LIDs.GetLIDForPN(ctx, j)
 			if err != nil {
 				return nil, err
 			}
