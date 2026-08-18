@@ -221,4 +221,14 @@ func init() {
 		true, false, false,
 		RandomQuote,
 	)
+
+	commands.NewCommand("qdelete",
+		"Deleta um quote existente, respondendo a mensagem do quote",
+		"diversão",
+		&[]string{"qdel", "qd"},
+		nil,
+		true, false, false,
+		HandleQuoteDeleteCommand,
+		commands.HasQuotedMessage,
+	)
 }

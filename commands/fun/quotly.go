@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -174,7 +175,21 @@ func HandleQuoteCommand(m *messages.Message) {
 		slog.Error("db error while saving quotly file", "error", err)
 	}
 
-	m.ReplySticker(stickerData, messages.StickerMessage, emojis.Success)
+	resp, err := m.ReplySticker(stickerData, messages.StickerMessage, emojis.Success)
+	if err != nil {
+		slog.Error("error sending quotly sticker", "error", err)
+		return
+	}
+
+	err = m.Bot.DB.Quotly.SaveSentMessage(&models.QuotlyMessage{
+		StanzaID:  resp.ID,
+		ChatID:    m.Chat.ChatID,
+		FileId:    file.Name,
+		CreatedAt: time.Now(),
+	})
+	if err != nil {
+		slog.Error("db error while saving quotly sent message", "error", err)
+	}
 }
 
 func RandomQuote(m *messages.Message) {
@@ -193,5 +208,55 @@ func RandomQuote(m *messages.Message) {
 		return
 	}
 
-	m.ReplySticker(b, messages.StickerMessage, emojis.Success)
+	resp, err := m.ReplySticker(b, messages.StickerMessage, emojis.Success)
+	if err != nil {
+		slog.Error("error sending random quotly sticker", "error", err)
+		return
+	}
+
+	err = m.Bot.DB.Quotly.SaveSentMessage(&models.QuotlyMessage{
+		StanzaID:  resp.ID,
+		ChatID:    m.Chat.ChatID,
+		FileId:    random.FileId,
+		CreatedAt: time.Now(),
+	})
+	if err != nil {
+		slog.Error("db error while saving quotly sent message", "error", err)
+	}
+}
+
+func HandleQuoteDeleteCommand(m *messages.Message) {
+	stanzaID := ""
+	if ctxInfo := m.RawMessage.GetExtendedTextMessage().GetContextInfo(); ctxInfo != nil && ctxInfo.StanzaID != nil {
+		stanzaID = *ctxInfo.StanzaID
+	}
+
+	if stanzaID == "" {
+		m.Reply("Este comando só pode ser usado respondendo a um quote.", emojis.Fail)
+		return
+	}
+
+	sent, err := m.Bot.DB.Quotly.GetSentMessageByStanzaID(m.Chat.ChatID, stanzaID)
+	if err != nil {
+		slog.Error("db error while fetching quotly sent message", "error", err)
+		m.React(emojis.Fail)
+		return
+	}
+	if sent == nil {
+		m.Reply("A mensagem respondida não é um quote conhecido.", emojis.Fail)
+		return
+	}
+
+	if err := m.Bot.DB.Quotly.DeleteQuotly(m.Chat.ChatID, sent.FileId); err != nil {
+		slog.Error("db error while deleting quotly", "error", err)
+		m.Reply("Erro ao deletar o quote: "+err.Error(), emojis.Fail)
+		return
+	}
+
+	file := storage.NewFile(sent.FileId)
+	if err := file.Delete(m.Ctx); err != nil {
+		slog.Error("storage error while deleting quotly file", "error", err)
+	}
+
+	m.React(emojis.Success)
 }

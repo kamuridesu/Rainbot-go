@@ -37,9 +37,18 @@ func (r *messageRepository) Create(msg *models.Message) error {
 		quotedID.Valid = true
 	}
 
-	_, err := r.db.DB.Exec(r.db.GetQuery(
-		"INSERT INTO messages (stanzaId, chatId, senderJid, messageText, quotedStanzaId, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
-	), msg.StanzaID, msg.ChatID, msg.SenderJID, msg.MessageText, quotedID, msg.CreatedAt)
+	conflictTarget := "stanzaId"
+	if r.db.Driver == "postgres" {
+		conflictTarget = "stanzaId, createdAt"
+	}
+
+	query := fmt.Sprintf(
+		"INSERT INTO messages (stanzaId, chatId, senderJid, messageText, quotedStanzaId, createdAt) VALUES (?, ?, ?, ?, ?, ?) "+
+			"ON CONFLICT (%s) DO UPDATE SET messageText = excluded.messageText",
+		conflictTarget,
+	)
+
+	_, err := r.db.DB.Exec(r.db.GetQuery(query), msg.StanzaID, msg.ChatID, msg.SenderJID, msg.MessageText, quotedID, msg.CreatedAt)
 
 	return err
 }
