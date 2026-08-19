@@ -33,10 +33,22 @@ func guildRowHTML(name string, level int, online bool) string {
 }
 
 func lastReplyText(fake *botfakes.FakeClient) string {
-	if len(fake.SentMessages) == 0 {
-		return ""
+	for index := len(fake.SentMessages) - 1; index >= 0; index-- {
+		if textMessage := fake.SentMessages[index].Message.GetExtendedTextMessage(); textMessage != nil {
+			return textMessage.GetText()
+		}
 	}
-	return fake.SentMessages[len(fake.SentMessages)-1].Message.GetExtendedTextMessage().GetText()
+	return ""
+}
+
+func sentImageCount(fake *botfakes.FakeClient) int {
+	total := 0
+	for _, sent := range fake.SentMessages {
+		if sent.Message.GetImageMessage() != nil {
+			total++
+		}
+	}
+	return total
 }
 
 func TestRucoyOnlineGuildSuccess(t *testing.T) {
@@ -324,6 +336,9 @@ func TestUpskillWithManaEstimate(t *testing.T) {
 	if strings.Contains(text, "Treinando 8h por dia") {
 		t.Errorf("expected no daily training estimate when daily hours are omitted, got %q", text)
 	}
+	if sentImageCount(fake) != 1 {
+		t.Errorf("expected one generated upskill card image, got %d", sentImageCount(fake))
+	}
 }
 
 func TestUpskillWithManaEstimateAndDailyHoursInAnyOrder(t *testing.T) {
@@ -352,6 +367,9 @@ func TestUpskillWithManaEstimateAndDailyHoursInAnyOrder(t *testing.T) {
 				!strings.Contains(text, "Classe: Kina") ||
 				!strings.Contains(text, "Custo: 4.810.000 a 7.280.000 gold") {
 				t.Errorf("expected daily and mana estimates for args %v, got %q", tt.args, text)
+			}
+			if sentImageCount(fake) != 1 {
+				t.Errorf("expected one generated upskill card image for args %v, got %d", tt.args, sentImageCount(fake))
 			}
 		})
 	}

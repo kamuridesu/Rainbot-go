@@ -226,10 +226,15 @@ func TestFormatRucoyDailyTrainingEstimate(t *testing.T) {
 }
 
 func TestFormatRucoyUpskillManaEstimate(t *testing.T) {
-	got := formatRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, RucoyUpskillOptions{
+	options := RucoyUpskillOptions{
 		Vocation:     "Kina",
 		ManaPerSkill: 50,
-	})
+	}
+	estimate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, options)
+	if !ok {
+		t.Fatal("expected mana estimate to be calculated")
+	}
+	got := formatRucoyUpskillManaEstimate(options, estimate)
 
 	expectedParts := []string{
 		"Gasto estimado com Ultimate Mana Potion",

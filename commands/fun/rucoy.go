@@ -190,6 +190,16 @@ type RucoyUpskillOptions struct {
 	ManaPerSkill int64
 }
 
+type RucoyUpskillManaEstimate struct {
+	TotalMana  int64
+	MinPotions int64
+	MaxPotions int64
+	MinPacks   int64
+	MaxPacks   int64
+	MinCost    int64
+	MaxCost    int64
+}
+
 const rucoyMinimumTrainingDurationSeconds = 8 * 60
 const rucoyAFKProfileDelay = 2500 * time.Millisecond
 const rucoyUltimateManaPotionMin = 600
@@ -680,11 +690,30 @@ func Upskill(m *messages.Message) {
 	if options.DailyHours > 0 {
 		reply += "\n" + formatRucoyDailyTrainingEstimate(estimatedTime, options.DailyHours)
 	}
+
+	var manaEstimate RucoyUpskillManaEstimate
 	if options.Vocation != "" {
-		reply += "\n\n" + formatRucoyUpskillManaEstimate(estimatedTime, tickrate, options)
+		var ok bool
+		manaEstimate, ok = calculateRucoyUpskillManaEstimate(estimatedTime, tickrate, options)
+		if ok {
+			reply += "\n\n" + formatRucoyUpskillManaEstimate(options, manaEstimate)
+		}
 	}
 
 	m.Reply(reply, emojis.Success)
+	if options.Vocation != "" && manaEstimate.TotalMana > 0 {
+		card, err := generateRucoyUpskillCard(RucoyUpskillCardData{
+			FromSkill:     fromSkill,
+			ToSkill:       toSkill,
+			EstimatedTime: estimatedTime,
+			DailyHours:    options.DailyHours,
+			Options:       options,
+			ManaEstimate:  manaEstimate,
+		})
+		if err == nil {
+			_, _ = m.ReplyMedia(card, "", messages.ImageMessage)
+		}
+	}
 }
 
 func Uplevel(m *messages.Message) {
@@ -924,10 +953,10 @@ func formatRucoyDailyTrainingEstimate(estimatedTime string, dailyHours int) stri
 	return fmt.Sprintf("Treinando %dh por dia: %d dias, %d horas e %d minutos", dailyHours, days, remainingHours, minutes)
 }
 
-func formatRucoyUpskillManaEstimate(estimatedTime string, tickrate int, options RucoyUpskillOptions) string {
+func calculateRucoyUpskillManaEstimate(estimatedTime string, tickrate int, options RucoyUpskillOptions) (RucoyUpskillManaEstimate, bool) {
 	totalMinutes, ok := parseRucoyFormattedDurationMinutes(estimatedTime)
 	if !ok || tickrate <= 0 || options.ManaPerSkill <= 0 {
-		return ""
+		return RucoyUpskillManaEstimate{}, false
 	}
 
 	totalTicks := ceilDivInt64(int64(tickrate)*totalMinutes, 60)
@@ -939,16 +968,28 @@ func formatRucoyUpskillManaEstimate(estimatedTime string, tickrate int, options 
 	minCost := minPacks * rucoyUltimateManaPotionPackGold
 	maxCost := maxPacks * rucoyUltimateManaPotionPackGold
 
+	return RucoyUpskillManaEstimate{
+		TotalMana:  totalMana,
+		MinPotions: minPotions,
+		MaxPotions: maxPotions,
+		MinPacks:   minPacks,
+		MaxPacks:   maxPacks,
+		MinCost:    minCost,
+		MaxCost:    maxCost,
+	}, true
+}
+
+func formatRucoyUpskillManaEstimate(options RucoyUpskillOptions, estimate RucoyUpskillManaEstimate) string {
 	return fmt.Sprintf(
 		"Gasto estimado com Ultimate Mana Potion\nClasse: %s\nMana total: %s\nPotions: %s a %s\nPacks de 200: %s a %s\nCusto: %s a %s gold",
 		options.Vocation,
-		formatRucoyNumber(totalMana),
-		formatRucoyNumber(minPotions),
-		formatRucoyNumber(maxPotions),
-		formatRucoyNumber(minPacks),
-		formatRucoyNumber(maxPacks),
-		formatRucoyNumber(minCost),
-		formatRucoyNumber(maxCost),
+		formatRucoyNumber(estimate.TotalMana),
+		formatRucoyNumber(estimate.MinPotions),
+		formatRucoyNumber(estimate.MaxPotions),
+		formatRucoyNumber(estimate.MinPacks),
+		formatRucoyNumber(estimate.MaxPacks),
+		formatRucoyNumber(estimate.MinCost),
+		formatRucoyNumber(estimate.MaxCost),
 	)
 }
 
