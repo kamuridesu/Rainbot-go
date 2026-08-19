@@ -98,9 +98,13 @@ func TestParseRucoyLastOnlineDays(t *testing.T) {
 		{"minutes ago rounds to 0", `<td>Last online</td><td>10 minutes ago</td>`, 0},
 		{"hours ago rounds to 0", `<td>Last online</td><td>3 hours ago</td>`, 0},
 		{"days ago", `<td>Last online</td><td>5 days ago</td>`, 5},
+		{"about days ago", `<td>Last online</td><td>about 8 days ago</td>`, 8},
+		{"over years ago", `<td>Last online</td><td>over 5 years ago</td>`, 1825},
+		{"a day ago", `<td>Last online</td><td>a day ago</td>`, 1},
 		{"weeks ago converted to days", `<td>Last online</td><td>2 weeks ago</td>`, 14},
 		{"months ago converted to days", `<td>Last online</td><td>3 months ago</td>`, 90},
 		{"years ago converted to days", `<td>Last online</td><td>1 year ago</td>`, 365},
+		{"offline loading ignored", `<td>Last online</td><td>offline loading...</td>`, 0},
 		{"missing row", `<td>Something else</td><td>5 days ago</td>`, 0},
 	}
 

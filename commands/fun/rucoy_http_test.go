@@ -196,6 +196,70 @@ func TestRucoyAFKGuildDetectsInactiveMember(t *testing.T) {
 	}
 }
 
+func TestRucoyAFKGuildUsesRucoyStatsLastOnline(t *testing.T) {
+	characterRequests := 0
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/api/Guild/onlines-of-guild="):
+			w.Write([]byte(`{"players":[
+				{"name":"Old Player","lastOnline":"30 days ago"},
+				{"name":"Recent Player","lastOnline":"6 days ago"},
+				{"name":"Year Player","lastOnline":"over 1 year ago"},
+				{"name":"Online Player","lastOnline":"currently online"}
+			]}`))
+		case strings.Contains(r.URL.Path, "/characters/"):
+			characterRequests++
+			w.Write([]byte(`<td>Last online</td><td>10 days ago</td>`))
+		}
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"TestGuild"}
+
+	RucoyAFKGuild(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Old Player 30 dias offline") ||
+		!strings.Contains(text, "Year Player 365 dias offline") ||
+		strings.Contains(text, "Recent Player") ||
+		strings.Contains(text, "Online Player") {
+		t.Errorf("expected inactive members from RucoyStats reply, got %q", text)
+	}
+	if characterRequests != 0 {
+		t.Errorf("expected no character profile requests when RucoyStats succeeds, got %d", characterRequests)
+	}
+}
+
+func TestRucoyAFKGuildFallsBackWhenRucoyStatsIsUnavailable(t *testing.T) {
+	characterRequests := 0
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/api/Guild/onlines-of-guild="):
+			w.WriteHeader(http.StatusInternalServerError)
+		case strings.Contains(r.URL.Path, "/guild/"):
+			w.Write([]byte("<table>" + guildRowHTML("Online Guy", 50, true) + guildRowHTML("Offline Guy", 50, false) + "</table>"))
+		case strings.Contains(r.URL.Path, "/characters/"):
+			characterRequests++
+			w.Write([]byte(`<td>Last online</td><td>10 days ago</td>`))
+		}
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"TestGuild"}
+
+	RucoyAFKGuild(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Offline Guy 10 dias offline") || strings.Contains(text, "Online Guy") {
+		t.Errorf("expected fallback to check only offline members, got %q", text)
+	}
+	if characterRequests != 1 {
+		t.Errorf("expected only one character profile request in fallback, got %d", characterRequests)
+	}
+}
+
 func TestUpskillSuccess(t *testing.T) {
 	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("02:30:00"))

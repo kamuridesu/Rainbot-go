@@ -1,6 +1,7 @@
 package fun
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"io"
@@ -138,6 +139,15 @@ type RucoyCharacterInfo struct {
 	LastOnline string
 }
 
+type RucoyStatsGuildResponse struct {
+	Players []RucoyStatsGuildPlayer `json:"players"`
+}
+
+type RucoyStatsGuildPlayer struct {
+	Name       string `json:"name"`
+	LastOnline string `json:"lastOnline"`
+}
+
 type RucoyLevelTableEntry struct {
 	Level              int   `json:"level"`
 	ExpLoss            int64 `json:"expLoss"`
@@ -180,6 +190,12 @@ const rucoyAFKProfileDelay = 2500 * time.Millisecond
 func RucoyAFKGuild(m *messages.Message) {
 	guild := strings.Join(*m.Args, " ")
 
+	inactiveMembers, found, err := fetchRucoyStatsInactiveMembers(m, guild)
+	if err == nil && found {
+		m.Reply(formatRucoyAFKReply(guild, inactiveMembers, 0, false), emojis.Success)
+		return
+	}
+
 	requestURL := fmt.Sprintf("%s/guild/%s", rucoyBaseURL, url.PathEscape(guild))
 	response, err := sendRucoyGETWithRetry(m, requestURL)
 	if err != nil {
@@ -193,12 +209,18 @@ func RucoyAFKGuild(m *messages.Message) {
 		return
 	}
 
-	inactiveMembers := make([]RucoyInactiveMember, 0)
+	inactiveMembers = make([]RucoyInactiveMember, 0)
 	failedMembers := make([]string, 0)
-	for index, member := range rucoyGuild.Members {
-		if index > 0 {
+	checkedProfiles := 0
+	for _, member := range rucoyGuild.Members {
+		if member.Online {
+			continue
+		}
+
+		if checkedProfiles > 0 {
 			time.Sleep(rucoyAFKProfileDelay)
 		}
+		checkedProfiles++
 
 		lastOnline, err := fetchRucoyLastOnlineDays(m, member)
 		if err != nil {
@@ -214,29 +236,67 @@ func RucoyAFKGuild(m *messages.Message) {
 		}
 	}
 
+	m.Reply(formatRucoyAFKReply(rucoyGuild.Guild, inactiveMembers, len(failedMembers), checkedProfiles > 0 && len(failedMembers) == checkedProfiles), emojis.Success)
+}
+
+func fetchRucoyStatsInactiveMembers(m *messages.Message, guild string) ([]RucoyInactiveMember, bool, error) {
+	requestURL := fmt.Sprintf("%s/api/Guild/onlines-of-guild=%s", rucoyStatsApiURL, url.PathEscape(guild))
+	response, err := sendRucoyGETWithRetry(m, requestURL)
+	if err != nil {
+		return nil, false, err
+	}
+
+	response = strings.TrimSpace(response)
+	if response == "" {
+		return nil, false, nil
+	}
+
+	var guildResponse RucoyStatsGuildResponse
+	if err := json.Unmarshal([]byte(response), &guildResponse); err != nil {
+		return nil, false, err
+	}
+	if len(guildResponse.Players) == 0 {
+		return nil, false, nil
+	}
+
+	inactiveMembers := make([]RucoyInactiveMember, 0)
+	for _, player := range guildResponse.Players {
+		daysOffline := parseRucoyLastOnlineText(player.LastOnline)
+		if daysOffline >= 7 {
+			inactiveMembers = append(inactiveMembers, RucoyInactiveMember{
+				Name:        player.Name,
+				DaysOffline: daysOffline,
+			})
+		}
+	}
+
+	return inactiveMembers, true, nil
+}
+
+func formatRucoyAFKReply(guild string, inactiveMembers []RucoyInactiveMember, failedProfiles int, allProfilesFailed bool) string {
 	sort.SliceStable(inactiveMembers, func(i, j int) bool {
 		return inactiveMembers[i].DaysOffline > inactiveMembers[j].DaysOffline
 	})
 
 	sb := strings.Builder{}
 	if len(inactiveMembers) > 0 {
-		fmt.Fprintf(&sb, "Jogadores inativos em %s:\n\n", rucoyGuild.Guild)
+		fmt.Fprintf(&sb, "Jogadores inativos em %s:\n\n", guild)
 		for _, member := range inactiveMembers {
 			fmt.Fprintf(&sb, "%s %d dias offline\n", member.Name, member.DaysOffline)
 		}
-	} else if len(failedMembers) == len(rucoyGuild.Members) {
-		fmt.Fprintf(&sb, "Nao consegui verificar os perfis de %s agora.", rucoyGuild.Guild)
-	} else if len(failedMembers) > 0 {
-		fmt.Fprintf(&sb, "Nenhum jogador inativo encontrado nos perfis verificados em %s.", rucoyGuild.Guild)
+	} else if allProfilesFailed {
+		fmt.Fprintf(&sb, "Nao consegui verificar os perfis de %s agora.", guild)
+	} else if failedProfiles > 0 {
+		fmt.Fprintf(&sb, "Nenhum jogador inativo encontrado nos perfis verificados em %s.", guild)
 	} else {
-		fmt.Fprintf(&sb, "Nenhum jogador inativo em %s.", rucoyGuild.Guild)
+		fmt.Fprintf(&sb, "Nenhum jogador inativo em %s.", guild)
 	}
 
-	if len(failedMembers) > 0 {
-		fmt.Fprintf(&sb, "\n\nNao consegui verificar %d perfil(is) agora por limite do site. Tente novamente em alguns minutos.", len(failedMembers))
+	if failedProfiles > 0 {
+		fmt.Fprintf(&sb, "\n\nNao consegui verificar %d perfil(is) agora por limite do site. Tente novamente em alguns minutos.", failedProfiles)
 	}
 
-	m.Reply(sb.String(), emojis.Success)
+	return sb.String()
 }
 
 func RucoyMetaGuild(m *messages.Message) {
@@ -493,9 +553,13 @@ func parseRucoyLastOnlineDays(data string) int {
 		return 0
 	}
 
-	lastOnline := strings.ToLower(strings.TrimSpace(html.UnescapeString(match[1])))
+	return parseRucoyLastOnlineText(match[1])
+}
+
+func parseRucoyLastOnlineText(value string) int {
+	lastOnline := strings.ToLower(strings.TrimSpace(stripRucoyHTML(value)))
 	lastOnline = strings.Join(strings.Fields(lastOnline), " ")
-	if lastOnline == "" || strings.Contains(lastOnline, "online") {
+	if lastOnline == "" || lastOnline == "online" || strings.Contains(lastOnline, "currently online") || strings.Contains(lastOnline, "loading") {
 		return 0
 	}
 
@@ -504,23 +568,37 @@ func parseRucoyLastOnlineDays(data string) int {
 		return 0
 	}
 
-	value, err := strconv.Atoi(parts[0])
-	if err != nil {
+	valueIndex := -1
+	offlineValue := 0
+	for index, part := range parts {
+		parsedValue, err := strconv.Atoi(part)
+		if err == nil {
+			valueIndex = index
+			offlineValue = parsedValue
+			break
+		}
+		if part == "a" || part == "an" {
+			valueIndex = index
+			offlineValue = 1
+			break
+		}
+	}
+	if valueIndex < 0 || valueIndex+1 >= len(parts) {
 		return 0
 	}
 
-	unit := parts[1]
+	unit := parts[valueIndex+1]
 	switch {
 	case strings.HasPrefix(unit, "minute"), strings.HasPrefix(unit, "hour"):
 		return 0
 	case strings.HasPrefix(unit, "day"):
-		return value
+		return offlineValue
 	case strings.HasPrefix(unit, "week"):
-		return value * 7
+		return offlineValue * 7
 	case strings.HasPrefix(unit, "month"):
-		return value * 30
+		return offlineValue * 30
 	case strings.HasPrefix(unit, "year"):
-		return value * 365
+		return offlineValue * 365
 	default:
 		return 0
 	}
