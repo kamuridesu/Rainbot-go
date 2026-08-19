@@ -19,10 +19,10 @@ func withCobaltConfig(t *testing.T, url, apiKey string) {
 
 func TestIsCobaltAvailable(t *testing.T) {
 	tests := []struct {
+		wantErr error
 		name    string
 		url     string
 		key     string
-		wantErr error
 	}{
 		{"missing key", "http://example.com", "", ErrInvalidApiKey},
 		{"missing url", "", "key", ErrInvalidUrl},

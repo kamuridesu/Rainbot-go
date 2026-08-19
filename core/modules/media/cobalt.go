@@ -20,8 +20,8 @@ type CobaltErrorContext struct {
 }
 
 type CobaltError struct {
-	Code    int                `json:"code"`
 	Context CobaltErrorContext `json:"context"`
+	Code    int                `json:"code"`
 }
 
 type CobaltType = string
@@ -58,8 +58,8 @@ type CobaltResponse struct {
 }
 
 type CobaltResult struct {
-	Blob     []byte
 	Filename string
+	Blob     []byte
 }
 
 type CobaltRequestBody struct {

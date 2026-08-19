@@ -11,8 +11,8 @@ import (
 )
 
 type SentMessage struct {
-	Chat    types.JID
 	Message *waE2E.Message
+	Chat    types.JID
 }
 
 type FakeClient struct {

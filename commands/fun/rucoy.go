@@ -26,9 +26,9 @@ var (
 
 type RucoyGuildMember struct {
 	Name          string
+	CharacterPath string
 	Level         int
 	Online        bool
-	CharacterPath string
 }
 
 type ParsedRucoyGuildData struct {
@@ -132,10 +132,10 @@ type RucoyGoalMember struct {
 
 type RucoyCharacterInfo struct {
 	Name       string
-	Level      int
 	Guild      string
 	Title      string
 	LastOnline string
+	Level      int
 }
 
 type RucoyLevelTableEntry struct {
@@ -154,22 +154,22 @@ type RucoyTrainingMonster struct {
 type RucoyTrainingResult struct {
 	Mode                  string
 	Monster               string
-	Efficiency            float64
-	DurationSeconds       float64
-	MinimumDuration       float64
-	MaxDamage             int
-	MaxCriticalDamage     int
+	BestShortMonster      string
 	NextMonster           string
+	MaxCriticalDamage     int
+	MaxDamage             int
+	MinimumDuration       float64
+	DurationSeconds       float64
 	RequiredStats         int
 	StatsNeededFor1Damage int
-	BestShortMonster      string
+	Efficiency            float64
 	BestShortEfficiency   float64
 	BestShortDuration     float64
 }
 
 type RucoyTrainingAlternative struct {
-	Attack          int
 	Monster         string
+	Attack          int
 	Efficiency      float64
 	DurationSeconds float64
 }

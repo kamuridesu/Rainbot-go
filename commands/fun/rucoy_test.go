@@ -202,8 +202,8 @@ func TestCalculateRucoyTrainingHighEfficiencyMayFindNoMonster(t *testing.T) {
 
 func TestFormatRucoyTrainingDuration(t *testing.T) {
 	tests := []struct {
-		seconds float64
 		want    string
+		seconds float64
 	}{
 		{0, "00:00"},
 		{65, "01:05"},
@@ -253,9 +253,9 @@ func TestParseRucoyXPPerHour(t *testing.T) {
 func TestFormatRucoyDuration(t *testing.T) {
 	tests := []struct {
 		name      string
+		want      string
 		xpNeeded  int64
 		xpPerHour int64
-		want      string
 	}{
 		{"less than an hour", 1000, 4000, "15 minutos"},
 		{"exact hour", 4000, 4000, "1 horas e 0 minutos"},
@@ -290,8 +290,8 @@ func TestAbsRucoyNumber(t *testing.T) {
 
 func TestFormatRucoyNumber(t *testing.T) {
 	tests := []struct {
-		value int64
 		want  string
+		value int64
 	}{
 		{0, "0"},
 		{999, "999"},

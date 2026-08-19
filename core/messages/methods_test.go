@@ -281,9 +281,9 @@ func TestSendAudioMessage(t *testing.T) {
 
 func TestSendMediaMessageDispatchesByType(t *testing.T) {
 	tests := []struct {
+		check   func(msg *waE2E.Message) bool
 		name    string
 		msgType MessageType
-		check   func(msg *waE2E.Message) bool
 	}{
 		{"image", ImageMessage, func(msg *waE2E.Message) bool { return msg.GetImageMessage() != nil }},
 		{"video", VideoMessage, func(msg *waE2E.Message) bool { return msg.GetVideoMessage() != nil }},

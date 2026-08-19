@@ -12,8 +12,8 @@ import (
 )
 
 type Database struct {
-	Driver string
 	DB     *sql.DB
+	Driver string
 	closed bool
 }
 

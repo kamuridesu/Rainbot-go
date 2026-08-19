@@ -1,17 +1,17 @@
 package models
 
 type Chat struct {
-	ChatID                 string `json:"chatId"`
-	IsBotEnabled           int    `json:"isBotEnabled"`
-	Prefix                 string `json:"prefix"`
-	AdminOnly              int    `json:"adminOnly"`
 	CustomProfanityWords   string `json:"customProfanityWords"`
-	ProfanityFilterEnabled int    `json:"profanityFilterEnabled"`
+	WelcomeMessage         string `json:"welcomeMessage"`
+	Prefix                 string `json:"prefix"`
+	ChatID                 string `json:"chatId"`
 	WarnBanThreshold       int    `json:"warnBanThreshold"`
+	ProfanityFilterEnabled int    `json:"profanityFilterEnabled"`
+	AdminOnly              int    `json:"adminOnly"`
 	AllowAdults            int    `json:"allowAdults"`
 	AllowGames             int    `json:"allowGames"`
 	AllowFun               int    `json:"allowFun"`
-	WelcomeMessage         string `json:"welcomeMessage"`
+	IsBotEnabled           int    `json:"isBotEnabled"`
 	CountMessages          int    `json:"countMessages"`
 	AllowQuote             int    `json:"allowQuote"`
 	QuoteNMessages         int    `json:"quoteNMessages"`

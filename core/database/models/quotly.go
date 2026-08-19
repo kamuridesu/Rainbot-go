@@ -8,8 +8,8 @@ type QuotlyFile struct {
 }
 
 type QuotlyMessage struct {
+	CreatedAt time.Time `json:"createdAt"`
 	StanzaID  string    `json:"stanzaId"`
 	ChatID    string    `json:"chatId"`
 	FileId    string    `json:"fileId"`
-	CreatedAt time.Time `json:"createdAt"`
 }

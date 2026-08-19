@@ -42,9 +42,9 @@ func NewStorage() FileStorage {
 }
 
 type File struct {
+	storage FileStorage
 	Name    string
 	mode    OpenFileMode
-	storage FileStorage
 }
 
 func RandomFilename(ext string) string {

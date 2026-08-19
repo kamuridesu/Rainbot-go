@@ -28,18 +28,18 @@ const (
 
 type Message struct {
 	Ctx              context.Context
-	Bot              *bot.Bot
+	Author           *models.Member
 	Args             *[]string
 	RawEvent         *events.Message
 	RawMessage       *waE2E.Message
 	Text             *string
-	Type             MessageType
 	Command          *string
 	Chat             *models.Chat
-	Author           *models.Member
+	Bot              *bot.Bot
+	QuotedMessage    *Message
 	Filters          []*models.Filter
 	MentionedMembers []*models.Member
-	QuotedMessage    *Message
+	Type             MessageType
 }
 
 func deduplicateMentions(mentions []string) []string {

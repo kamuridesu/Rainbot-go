@@ -36,12 +36,11 @@ func (f *fakeChatRepo) Delete(jid string) error { return nil }
 func (f *fakeChatRepo) Close() error            { return nil }
 
 type fakeMemberRepo struct {
+	createErr         error
 	findByChatAndIdFn func(chatJid, memberJid string) (*models.Member, error)
 	getAllByChatFn    func(chatJid string) ([]*models.Member, error)
 	updateFn          func(member *models.Member) error
-
-	createCalls [][2]string
-	createErr   error
+	createCalls       [][2]string
 }
 
 func (f *fakeMemberRepo) FindByChatAndId(chatJid, memberJid string) (*models.Member, error) {

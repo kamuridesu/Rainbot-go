@@ -15,16 +15,16 @@ import (
 type Callback func(message *m.Message)
 
 type Command struct {
-	Name        string
 	Aliases     *[]string
+	Examples    *[]string
+	Callable    Callback
+	Name        string
 	Category    string
 	Description string
-	Examples    *[]string
+	Guards      []func(message *m.Message) error
 	IsAdult     bool
 	IsGame      bool
 	IsFun       bool
-	Callable    Callback
-	Guards      []func(message *m.Message) error
 }
 
 type CommandList []*Command

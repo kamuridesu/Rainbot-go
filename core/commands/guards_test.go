@@ -156,9 +156,9 @@ func TestIsBotAdminFalseWhenBotIsNotAdmin(t *testing.T) {
 func TestHasArgs(t *testing.T) {
 	tests := []struct {
 		name    string
+		args    []string
 		numArgs int
 		atMax   bool
-		args    []string
 		wantErr bool
 	}{
 		{"zero required always passes", 0, false, nil, false},

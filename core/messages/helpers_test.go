@@ -148,8 +148,8 @@ func TestParseMessageContentVideoMessage(t *testing.T) {
 
 func TestParseMessageContentStickerAudioReactionAndUnknown(t *testing.T) {
 	tests := []struct {
-		name string
 		msg  *waE2E.Message
+		name string
 		want MessageType
 	}{
 		{"sticker", &waE2E.Message{StickerMessage: &waE2E.StickerMessage{}}, StickerMessage},
@@ -170,11 +170,11 @@ func TestParseMessageContentStickerAudioReactionAndUnknown(t *testing.T) {
 
 func TestParseCommandArgs(t *testing.T) {
 	tests := []struct {
+		wantCmd  *string
+		wantArgs *[]string
 		name     string
 		text     string
 		prefix   string
-		wantCmd  *string
-		wantArgs *[]string
 	}{
 		{
 			name:     "command with args",
