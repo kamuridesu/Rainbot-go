@@ -547,6 +547,12 @@ func Upskill(m *messages.Message) {
 		return
 	}
 
+	dailyHours, err := parseRucoyDailyHours(args[3:])
+	if err != nil {
+		m.Reply("horas_por_dia precisa ser um numero entre 1 e 24. Exemplo: /upskill 400 450 5000 8", emojis.Fail)
+		return
+	}
+
 	if fromSkill < 55 {
 		fromSkill = 55
 	}
@@ -575,13 +581,19 @@ func Upskill(m *messages.Message) {
 		return
 	}
 
-	m.Reply(fmt.Sprintf(
+	estimatedTime := formatUpskillTime(result)
+	reply := fmt.Sprintf(
 		"Upskill Rucoy\n\nSkill atual: %d\nSkill desejada: %d\nTickrate: %d\nTempo estimado: %s",
 		fromSkill,
 		toSkill,
 		tickrate,
-		formatUpskillTime(result),
-	), emojis.Success)
+		estimatedTime,
+	)
+	if dailyHours > 0 {
+		reply += "\n" + formatRucoyDailyTrainingEstimate(estimatedTime, dailyHours)
+	}
+
+	m.Reply(reply, emojis.Success)
 }
 
 func Uplevel(m *messages.Message) {
@@ -602,6 +614,12 @@ func Uplevel(m *messages.Message) {
 	xpPerHour, err := parseRucoyXPPerHour(args[2])
 	if err != nil {
 		m.Reply("xp_por_hora precisa ser um numero. Exemplo: /uplevel 350 400 20kk", emojis.Fail)
+		return
+	}
+
+	dailyHours, err := parseRucoyDailyHours(args[3:])
+	if err != nil {
+		m.Reply("horas_por_dia precisa ser um numero entre 1 e 24. Exemplo: /uplevel 350 400 20kk 8", emojis.Fail)
 		return
 	}
 
@@ -637,14 +655,20 @@ func Uplevel(m *messages.Message) {
 		return
 	}
 
-	m.Reply(fmt.Sprintf(
+	estimatedTime := formatRucoyDuration(xpNeeded, xpPerHour)
+	reply := fmt.Sprintf(
 		"Uplevel Rucoy\n\nLevel: %d -> %d\nXP/h: %s\nXP faltando: %s\nTempo estimado: %s",
 		fromLevel,
 		toLevel,
 		formatRucoyNumber(xpPerHour),
 		formatRucoyNumber(xpNeeded),
-		formatRucoyDuration(xpNeeded, xpPerHour),
-	), emojis.Success)
+		estimatedTime,
+	)
+	if dailyHours > 0 {
+		reply += "\n" + formatRucoyDailyTrainingEstimate(estimatedTime, dailyHours)
+	}
+
+	m.Reply(reply, emojis.Success)
 }
 
 func RucoyTrain(m *messages.Message) {
@@ -728,6 +752,67 @@ func formatUpskillTime(raw string) string {
 	default:
 		return raw
 	}
+}
+
+func parseRucoyDailyHours(args []string) (int, error) {
+	if len(args) == 0 {
+		return 0, nil
+	}
+
+	hours, err := strconv.Atoi(args[0])
+	if err != nil || hours < 1 || hours > 24 {
+		return 0, fmt.Errorf("invalid daily hours")
+	}
+
+	return hours, nil
+}
+
+func formatRucoyDailyTrainingEstimate(estimatedTime string, dailyHours int) string {
+	totalMinutes, ok := parseRucoyFormattedDurationMinutes(estimatedTime)
+	if !ok || dailyHours <= 0 {
+		return ""
+	}
+
+	dailyMinutes := int64(dailyHours * 60)
+	days := totalMinutes / dailyMinutes
+	remainingMinutes := totalMinutes % dailyMinutes
+	remainingHours := remainingMinutes / 60
+	minutes := remainingMinutes % 60
+
+	if days == 0 {
+		if remainingHours == 0 {
+			return fmt.Sprintf("Treinando %dh por dia: %d minutos", dailyHours, minutes)
+		}
+		return fmt.Sprintf("Treinando %dh por dia: %d horas e %d minutos", dailyHours, remainingHours, minutes)
+	}
+
+	if remainingHours == 0 && minutes == 0 {
+		return fmt.Sprintf("Treinando %dh por dia: %d dias", dailyHours, days)
+	}
+
+	return fmt.Sprintf("Treinando %dh por dia: %d dias, %d horas e %d minutos", dailyHours, days, remainingHours, minutes)
+}
+
+func parseRucoyFormattedDurationMinutes(value string) (int64, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+
+	hoursRegex := regexp.MustCompile(`^(\d+)\s+horas?\s+e\s+(\d+)\s+minutos?$`)
+	if match := hoursRegex.FindStringSubmatch(value); len(match) == 3 {
+		hours, _ := strconv.ParseInt(match[1], 10, 64)
+		minutes, _ := strconv.ParseInt(match[2], 10, 64)
+		return hours*60 + minutes, true
+	}
+
+	minutesRegex := regexp.MustCompile(`^(\d+)\s+minutos?$`)
+	if match := minutesRegex.FindStringSubmatch(value); len(match) == 2 {
+		minutes, _ := strconv.ParseInt(match[1], 10, 64)
+		return minutes, true
+	}
+
+	return 0, false
 }
 
 func validateRucoyTrainInput(attack int, baseLevel int, statLevel int, extraStats int, targetEfficiency float64) error {

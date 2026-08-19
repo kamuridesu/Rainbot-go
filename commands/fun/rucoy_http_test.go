@@ -213,6 +213,37 @@ func TestUpskillSuccess(t *testing.T) {
 	}
 }
 
+func TestUpskillWithDailyHours(t *testing.T) {
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("01:02:30"))
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"400", "450", "5000", "8"}
+
+	Upskill(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Tempo estimado: 26 horas e 30 minutos") ||
+		!strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") {
+		t.Errorf("expected daily training estimate in upskill reply, got %q", text)
+	}
+}
+
+func TestUpskillInvalidDailyHours(t *testing.T) {
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"400", "450", "5000", "25"}
+
+	Upskill(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "horas_por_dia") {
+		t.Errorf("expected daily hours validation error, got %q", text)
+	}
+}
+
 func TestUpskillHTTPError(t *testing.T) {
 	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -244,6 +275,37 @@ func TestUplevelSuccess(t *testing.T) {
 	text := lastReplyText(fake)
 	if !strings.Contains(text, "Uplevel Rucoy") {
 		t.Errorf("expected a formatted uplevel reply, got %q", text)
+	}
+}
+
+func TestUplevelWithDailyHours(t *testing.T) {
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("530000000"))
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"350", "400", "20kk", "8"}
+
+	Uplevel(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Tempo estimado: 26 horas e 30 minutos") ||
+		!strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") {
+		t.Errorf("expected daily training estimate in uplevel reply, got %q", text)
+	}
+}
+
+func TestUplevelInvalidDailyHours(t *testing.T) {
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"350", "400", "20kk", "0"}
+
+	Uplevel(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "horas_por_dia") {
+		t.Errorf("expected daily hours validation error, got %q", text)
 	}
 }
 

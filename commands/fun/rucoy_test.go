@@ -134,6 +134,56 @@ func TestFormatUpskillTime(t *testing.T) {
 	}
 }
 
+func TestParseRucoyDailyHours(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    int
+		wantErr bool
+	}{
+		{"empty optional argument", nil, 0, false},
+		{"valid daily hours", []string{"8"}, 8, false},
+		{"zero is invalid", []string{"0"}, 0, true},
+		{"above 24 is invalid", []string{"25"}, 0, true},
+		{"text is invalid", []string{"abc"}, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseRucoyDailyHours(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseRucoyDailyHours(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("parseRucoyDailyHours(%v) = %d, want %d", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatRucoyDailyTrainingEstimate(t *testing.T) {
+	tests := []struct {
+		name          string
+		estimatedTime string
+		dailyHours    int
+		want          string
+	}{
+		{"exact days", "24 horas e 0 minutos", 8, "Treinando 8h por dia: 3 dias"},
+		{"days with remainder", "26 horas e 30 minutos", 8, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos"},
+		{"less than one daily session", "5 horas e 30 minutos", 8, "Treinando 8h por dia: 5 horas e 30 minutos"},
+		{"minutes only", "45 minutos", 8, "Treinando 8h por dia: 45 minutos"},
+		{"unparseable returns empty", "???", 8, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatRucoyDailyTrainingEstimate(tt.estimatedTime, tt.dailyHours); got != tt.want {
+				t.Errorf("formatRucoyDailyTrainingEstimate(%q, %d) = %q, want %q", tt.estimatedTime, tt.dailyHours, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateRucoyTrainInput(t *testing.T) {
 	tests := []struct {
 		name             string
