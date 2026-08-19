@@ -184,8 +184,18 @@ type RucoyTrainingAlternative struct {
 	DurationSeconds float64
 }
 
+type RucoyUpskillOptions struct {
+	DailyHours   int
+	Vocation     string
+	ManaPerSkill int64
+}
+
 const rucoyMinimumTrainingDurationSeconds = 8 * 60
 const rucoyAFKProfileDelay = 2500 * time.Millisecond
+const rucoyUltimateManaPotionMin = 600
+const rucoyUltimateManaPotionMax = 900
+const rucoyUltimateManaPotionPackSize = 200
+const rucoyUltimateManaPotionPackGold = 130000
 
 func RucoyAFKGuild(m *messages.Message) {
 	guild := strings.Join(*m.Args, " ")
@@ -625,9 +635,9 @@ func Upskill(m *messages.Message) {
 		return
 	}
 
-	dailyHours, err := parseRucoyDailyHours(args[3:])
+	options, err := parseRucoyUpskillOptions(args[3:])
 	if err != nil {
-		m.Reply("horas_por_dia precisa ser um numero entre 1 e 24. Exemplo: /upskill 400 450 5000 8", emojis.Fail)
+		m.Reply("Opcional invalido. Use horas de 1 a 24 e/ou classe kina, pally ou mage. Exemplos: /upskill 400 450 5000 8 ou /upskill 400 450 5000 kina 8", emojis.Fail)
 		return
 	}
 
@@ -667,8 +677,11 @@ func Upskill(m *messages.Message) {
 		tickrate,
 		estimatedTime,
 	)
-	if dailyHours > 0 {
-		reply += "\n" + formatRucoyDailyTrainingEstimate(estimatedTime, dailyHours)
+	if options.DailyHours > 0 {
+		reply += "\n" + formatRucoyDailyTrainingEstimate(estimatedTime, options.DailyHours)
+	}
+	if options.Vocation != "" {
+		reply += "\n\n" + formatRucoyUpskillManaEstimate(estimatedTime, tickrate, options)
 	}
 
 	m.Reply(reply, emojis.Success)
@@ -845,6 +858,46 @@ func parseRucoyDailyHours(args []string) (int, error) {
 	return hours, nil
 }
 
+func parseRucoyUpskillOptions(args []string) (RucoyUpskillOptions, error) {
+	options := RucoyUpskillOptions{}
+	for _, arg := range args {
+		arg = strings.ToLower(strings.TrimSpace(arg))
+		if arg == "" {
+			continue
+		}
+
+		if hours, err := strconv.Atoi(arg); err == nil {
+			if options.DailyHours != 0 || hours < 1 || hours > 24 {
+				return RucoyUpskillOptions{}, fmt.Errorf("invalid daily hours")
+			}
+			options.DailyHours = hours
+			continue
+		}
+
+		vocation, manaPerSkill, ok := parseRucoyUpskillVocation(arg)
+		if !ok || options.Vocation != "" {
+			return RucoyUpskillOptions{}, fmt.Errorf("invalid vocation")
+		}
+		options.Vocation = vocation
+		options.ManaPerSkill = manaPerSkill
+	}
+
+	return options, nil
+}
+
+func parseRucoyUpskillVocation(value string) (string, int64, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "kina", "knight":
+		return "Kina", 50, true
+	case "pally", "paladin":
+		return "Pally", 50, true
+	case "mage", "mago":
+		return "Mage", 40, true
+	default:
+		return "", 0, false
+	}
+}
+
 func formatRucoyDailyTrainingEstimate(estimatedTime string, dailyHours int) string {
 	totalMinutes, ok := parseRucoyFormattedDurationMinutes(estimatedTime)
 	if !ok || dailyHours <= 0 {
@@ -869,6 +922,44 @@ func formatRucoyDailyTrainingEstimate(estimatedTime string, dailyHours int) stri
 	}
 
 	return fmt.Sprintf("Treinando %dh por dia: %d dias, %d horas e %d minutos", dailyHours, days, remainingHours, minutes)
+}
+
+func formatRucoyUpskillManaEstimate(estimatedTime string, tickrate int, options RucoyUpskillOptions) string {
+	totalMinutes, ok := parseRucoyFormattedDurationMinutes(estimatedTime)
+	if !ok || tickrate <= 0 || options.ManaPerSkill <= 0 {
+		return ""
+	}
+
+	totalTicks := ceilDivInt64(int64(tickrate)*totalMinutes, 60)
+	totalMana := totalTicks * options.ManaPerSkill
+	minPotions := ceilDivInt64(totalMana, rucoyUltimateManaPotionMax)
+	maxPotions := ceilDivInt64(totalMana, rucoyUltimateManaPotionMin)
+	minPacks := ceilDivInt64(minPotions, rucoyUltimateManaPotionPackSize)
+	maxPacks := ceilDivInt64(maxPotions, rucoyUltimateManaPotionPackSize)
+	minCost := minPacks * rucoyUltimateManaPotionPackGold
+	maxCost := maxPacks * rucoyUltimateManaPotionPackGold
+
+	return fmt.Sprintf(
+		"Gasto estimado com Ultimate Mana Potion\nClasse: %s\nMana total: %s\nPotions: %s a %s\nPacks de 200: %s a %s\nCusto: %s a %s gold",
+		options.Vocation,
+		formatRucoyNumber(totalMana),
+		formatRucoyNumber(minPotions),
+		formatRucoyNumber(maxPotions),
+		formatRucoyNumber(minPacks),
+		formatRucoyNumber(maxPacks),
+		formatRucoyNumber(minCost),
+		formatRucoyNumber(maxCost),
+	)
+}
+
+func ceilDivInt64(value int64, divisor int64) int64 {
+	if divisor <= 0 {
+		return 0
+	}
+	if value <= 0 {
+		return 0
+	}
+	return (value + divisor - 1) / divisor
 }
 
 func parseRucoyFormattedDurationMinutes(value string) (int64, bool) {

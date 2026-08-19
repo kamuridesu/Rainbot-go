@@ -2,6 +2,7 @@ package fun
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -165,6 +166,42 @@ func TestParseRucoyDailyHours(t *testing.T) {
 	}
 }
 
+func TestParseRucoyUpskillOptions(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		wantDailyHours int
+		wantVocation   string
+		wantMana       int64
+		wantErr        bool
+	}{
+		{"no optional args", nil, 0, "", 0, false},
+		{"daily hours only", []string{"8"}, 8, "", 0, false},
+		{"vocation only", []string{"kina"}, 0, "Kina", 50, false},
+		{"vocation then daily hours", []string{"kina", "8"}, 8, "Kina", 50, false},
+		{"daily hours then vocation", []string{"8", "kina"}, 8, "Kina", 50, false},
+		{"pally mana", []string{"pally"}, 0, "Pally", 50, false},
+		{"mage mana", []string{"mage"}, 0, "Mage", 40, false},
+		{"invalid daily hours", []string{"25"}, 0, "", 0, true},
+		{"invalid vocation", []string{"archer"}, 0, "", 0, true},
+		{"duplicated daily hours", []string{"8", "9"}, 0, "", 0, true},
+		{"duplicated vocation", []string{"kina", "mage"}, 0, "", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseRucoyUpskillOptions(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseRucoyUpskillOptions(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+			}
+			if got.DailyHours != tt.wantDailyHours || got.Vocation != tt.wantVocation || got.ManaPerSkill != tt.wantMana {
+				t.Errorf("parseRucoyUpskillOptions(%v) = %+v, want hours %d vocation %q mana %d",
+					tt.args, got, tt.wantDailyHours, tt.wantVocation, tt.wantMana)
+			}
+		})
+	}
+}
+
 func TestFormatRucoyDailyTrainingEstimate(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -185,6 +222,27 @@ func TestFormatRucoyDailyTrainingEstimate(t *testing.T) {
 				t.Errorf("formatRucoyDailyTrainingEstimate(%q, %d) = %q, want %q", tt.estimatedTime, tt.dailyHours, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFormatRucoyUpskillManaEstimate(t *testing.T) {
+	got := formatRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, RucoyUpskillOptions{
+		Vocation:     "Kina",
+		ManaPerSkill: 50,
+	})
+
+	expectedParts := []string{
+		"Gasto estimado com Ultimate Mana Potion",
+		"Classe: Kina",
+		"Mana total: 6.625.000",
+		"Potions: 7.362 a 11.042",
+		"Packs de 200: 37 a 56",
+		"Custo: 4.810.000 a 7.280.000 gold",
+	}
+	for _, part := range expectedParts {
+		if !strings.Contains(got, part) {
+			t.Errorf("expected mana estimate to contain %q, got %q", part, got)
+		}
 	}
 }
 

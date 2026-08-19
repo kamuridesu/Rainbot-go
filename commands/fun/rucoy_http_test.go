@@ -295,6 +295,68 @@ func TestUpskillWithDailyHours(t *testing.T) {
 	}
 }
 
+func TestUpskillWithManaEstimate(t *testing.T) {
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("01:02:30"))
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"400", "450", "5000", "kina"}
+
+	Upskill(m)
+
+	text := lastReplyText(fake)
+	expectedParts := []string{
+		"Tempo estimado: 26 horas e 30 minutos",
+		"Gasto estimado com Ultimate Mana Potion",
+		"Classe: Kina",
+		"Mana total: 6.625.000",
+		"Potions: 7.362 a 11.042",
+		"Packs de 200: 37 a 56",
+		"Custo: 4.810.000 a 7.280.000 gold",
+	}
+	for _, part := range expectedParts {
+		if !strings.Contains(text, part) {
+			t.Errorf("expected upskill mana reply to contain %q, got %q", part, text)
+		}
+	}
+	if strings.Contains(text, "Treinando 8h por dia") {
+		t.Errorf("expected no daily training estimate when daily hours are omitted, got %q", text)
+	}
+}
+
+func TestUpskillWithManaEstimateAndDailyHoursInAnyOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"vocation then daily hours", []string{"400", "450", "5000", "kina", "8"}},
+		{"daily hours then vocation", []string{"400", "450", "5000", "8", "kina"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("01:02:30"))
+			})
+
+			fake := &botfakes.FakeClient{}
+			m := newTestMessage(t, fake, newTestDB(t))
+			*m.Args = tt.args
+
+			Upskill(m)
+
+			text := lastReplyText(fake)
+			if !strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") ||
+				!strings.Contains(text, "Classe: Kina") ||
+				!strings.Contains(text, "Custo: 4.810.000 a 7.280.000 gold") {
+				t.Errorf("expected daily and mana estimates for args %v, got %q", tt.args, text)
+			}
+		})
+	}
+}
+
 func TestUpskillInvalidDailyHours(t *testing.T) {
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, newTestDB(t))
@@ -303,7 +365,7 @@ func TestUpskillInvalidDailyHours(t *testing.T) {
 	Upskill(m)
 
 	text := lastReplyText(fake)
-	if !strings.Contains(text, "horas_por_dia") {
+	if !strings.Contains(text, "Opcional invalido") {
 		t.Errorf("expected daily hours validation error, got %q", text)
 	}
 }
