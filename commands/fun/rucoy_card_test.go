@@ -52,10 +52,10 @@ func TestGenerateRucoyUpskillCardForPally(t *testing.T) {
 			TotalMana:   6625000,
 			MinPotions:  7362,
 			MaxPotions:  11042,
-			TotalArrows: 530000,
-			ArrowCost:   1060000,
-			MinCost:     5870000,
-			MaxCost:     8340000,
+			TotalArrows: 381600,
+			ArrowCost:   764000,
+			MinCost:     5574000,
+			MaxCost:     8044000,
 		},
 	})
 	if err != nil {

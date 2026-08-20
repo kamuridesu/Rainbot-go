@@ -268,16 +268,16 @@ func TestFormatRucoyUpskillManaEstimateForPallyAddsArrows(t *testing.T) {
 		"Classe: Pally",
 		"Mana total: 6.625.000",
 		"Potions: 7.362 a 11.042",
-		"Flechas: 530.000",
-		"Custo flechas: 1.060.000 gold",
-		"Custo total: 5.870.000 a 8.340.000 gold",
+		"Flechas: 381.600",
+		"Custo flechas: 764.000 gold",
+		"Custo total: 5.574.000 a 8.044.000 gold",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(got, part) {
 			t.Errorf("expected pally mana estimate to contain %q, got %q", part, got)
 		}
 	}
-	if estimate.TotalArrows != 530000 || estimate.ArrowCost != 1060000 {
+	if estimate.TotalArrows != 381600 || estimate.ArrowCost != 764000 {
 		t.Errorf("unexpected pally arrows estimate: %+v", estimate)
 	}
 }
