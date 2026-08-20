@@ -51,21 +51,24 @@ func generateRucoyUpskillCard(data RucoyUpskillCardData) ([]byte, error) {
 
 	timeText := compactRucoyDuration(data.EstimatedTime)
 	timeLines := []rucoyCardTextLine{
-		{text: strings.ToUpper(data.Options.Vocation), maxWidth: 500, scale: 4, color: gold},
-		{text: "TEMPO " + timeText, maxWidth: 500, scale: 4, color: cream},
+		{text: strings.ToUpper(data.Options.Vocation), maxWidth: 500, scale: 2, color: gold},
+		{text: "TEMPO", maxWidth: 500, scale: 3, color: gold},
+		{text: timeText, maxWidth: 500, scale: 3, color: cream},
 	}
 	if data.DailyHours > 0 {
 		timeLines = append(timeLines, rucoyCardTextLine{text: compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), maxWidth: 500, scale: 2, color: blue})
 	}
-	drawCenteredPixelTextBlock(card, panelCenterX, 588, 780, timeLines, 6)
+	drawCenteredPixelTextBlock(card, panelCenterX, 586, 782, timeLines, 6)
 
-	drawCenteredPixelTextBlock(card, panelCenterX, 842, 1028, []rucoyCardTextLine{
-		{text: "MANA " + formatRucoyCardNumber(data.ManaEstimate.TotalMana), maxWidth: 530, scale: 4, color: blue},
-		{text: fmt.Sprintf("POTIONS %s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), maxWidth: 530, scale: 4, color: cream},
-	}, 16)
+	drawCenteredPixelTextBlock(card, panelCenterX, 858, 1044, []rucoyCardTextLine{
+		{text: "MANA", maxWidth: 530, scale: 2, color: blue},
+		{text: formatRucoyCardNumber(data.ManaEstimate.TotalMana), maxWidth: 530, scale: 3, color: cream},
+		{text: "POTIONS", maxWidth: 530, scale: 2, color: blue},
+		{text: fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), maxWidth: 530, scale: 3, color: cream},
+	}, 6)
 
 	drawCenteredPixelTextBlock(card, panelCenterX, 1100, 1322, []rucoyCardTextLine{
-		{text: "GOLD", maxWidth: 620, scale: 4, color: gold},
+		{text: "GOLD", maxWidth: 620, scale: 3, color: gold},
 		{text: fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), maxWidth: 620, scale: 3, color: cream},
 	}, 18)
 
