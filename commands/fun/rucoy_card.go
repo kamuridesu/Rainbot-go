@@ -98,6 +98,8 @@ func loadRucoyUpskillCardTemplate(options RucoyUpskillOptions) (image.Image, err
 	templateName := "upskill-card-template.png"
 	if options.Vocation == "Pally" {
 		templateName = "upskill-card-template-pally-arrows.png"
+	} else if options.Vocation == "Mage" {
+		templateName = "upskill-card-template-mage-fire.png"
 	}
 
 	paths := []string{
