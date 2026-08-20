@@ -27,7 +27,7 @@ type RucoyUpskillCardData struct {
 }
 
 func generateRucoyUpskillCard(data RucoyUpskillCardData) ([]byte, error) {
-	template, err := loadRucoyUpskillCardTemplate()
+	template, err := loadRucoyUpskillCardTemplate(data.Options)
 	if err != nil {
 		return nil, err
 	}
@@ -45,22 +45,40 @@ func generateRucoyUpskillCard(data RucoyUpskillCardData) ([]byte, error) {
 	timeCenterX := 600
 	manaCenterX := 594
 	goldCenterX := 612
+	pallyGoldCenterX := 570
 
 	drawCenteredFitPixelTextAtCenter(card, "UPSKILL RUCOY", titleCenterX, 204, 500, 5, gold)
 	drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("%d -> %d", data.FromSkill, data.ToSkill), skillCenterX, 418, 450, 5, green)
 
 	timeText := compactRucoyDuration(data.EstimatedTime)
-	drawCenteredFitPixelTextAtCenter(card, "TEMPO", timeCenterX, 664, 500, 3, gold)
-	drawCenteredFitPixelTextAtCenter(card, timeText, timeCenterX, 708, 500, 3, cream)
-	if data.DailyHours > 0 {
-		drawCenteredFitPixelTextAtCenter(card, compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), timeCenterX, 750, 500, 2, blue)
+	if data.ManaEstimate.TotalArrows > 0 {
+		drawCenteredFitPixelTextAtCenter(card, "TEMPO", timeCenterX, 620, 500, 3, gold)
+		drawCenteredFitPixelTextAtCenter(card, timeText, timeCenterX, 660, 500, 3, cream)
+		if data.DailyHours > 0 {
+			drawCenteredFitPixelTextAtCenter(card, compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), timeCenterX, 700, 500, 2, blue)
+		}
+
+		drawCenteredFitPixelTextAtCenter(card, "MANA "+formatRucoyCardNumber(data.ManaEstimate.TotalMana), manaCenterX, 850, 530, 3, blue)
+		drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("POTIONS %s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), manaCenterX, 910, 530, 3, cream)
+
+		drawCenteredFitPixelTextAtCenter(card, "FLECHAS "+formatRucoyCardNumber(data.ManaEstimate.TotalArrows), manaCenterX, 1060, 530, 3, blue)
+		drawCenteredFitPixelTextAtCenter(card, "CUSTO "+formatRucoyCardNumber(data.ManaEstimate.ArrowCost), manaCenterX, 1120, 530, 3, cream)
+
+		drawCenteredFitPixelTextAtCenter(card, "GOLD", pallyGoldCenterX, 1275, 500, 3, gold)
+		drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), pallyGoldCenterX, 1332, 500, 3, cream)
+	} else {
+		drawCenteredFitPixelTextAtCenter(card, "TEMPO", timeCenterX, 664, 500, 3, gold)
+		drawCenteredFitPixelTextAtCenter(card, timeText, timeCenterX, 708, 500, 3, cream)
+		if data.DailyHours > 0 {
+			drawCenteredFitPixelTextAtCenter(card, compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), timeCenterX, 750, 500, 2, blue)
+		}
+
+		drawCenteredFitPixelTextAtCenter(card, "MANA "+formatRucoyCardNumber(data.ManaEstimate.TotalMana), manaCenterX, 926, 530, 3, blue)
+		drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("POTIONS %s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), manaCenterX, 986, 530, 3, cream)
+
+		drawCenteredFitPixelTextAtCenter(card, "GOLD", goldCenterX, 1192, 620, 3, gold)
+		drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), goldCenterX, 1248, 620, 3, cream)
 	}
-
-	drawCenteredFitPixelTextAtCenter(card, "MANA "+formatRucoyCardNumber(data.ManaEstimate.TotalMana), manaCenterX, 926, 530, 3, blue)
-	drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("POTIONS %s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), manaCenterX, 986, 530, 3, cream)
-
-	drawCenteredFitPixelTextAtCenter(card, "GOLD", goldCenterX, 1192, 620, 3, gold)
-	drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), goldCenterX, 1248, 620, 3, cream)
 
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, card, &jpeg.Options{Quality: 92}); err != nil {
@@ -76,10 +94,15 @@ type rucoyCardTextLine struct {
 	color    color.RGBA
 }
 
-func loadRucoyUpskillCardTemplate() (image.Image, error) {
+func loadRucoyUpskillCardTemplate(options RucoyUpskillOptions) (image.Image, error) {
+	templateName := "upskill-card-template.png"
+	if options.Vocation == "Pally" {
+		templateName = "upskill-card-template-pally-arrows.png"
+	}
+
 	paths := []string{
-		filepath.Join("assets", "rucoy", "upskill-card-template.png"),
-		filepath.Join("..", "..", "assets", "rucoy", "upskill-card-template.png"),
+		filepath.Join("assets", "rucoy", templateName),
+		filepath.Join("..", "..", "assets", "rucoy", templateName),
 	}
 
 	var file *os.File

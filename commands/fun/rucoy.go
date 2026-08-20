@@ -191,11 +191,13 @@ type RucoyUpskillOptions struct {
 }
 
 type RucoyUpskillManaEstimate struct {
-	TotalMana  int64
-	MinPotions int64
-	MaxPotions int64
-	MinCost    int64
-	MaxCost    int64
+	TotalMana   int64
+	MinPotions  int64
+	MaxPotions  int64
+	TotalArrows int64
+	ArrowCost   int64
+	MinCost     int64
+	MaxCost     int64
 }
 
 const rucoyMinimumTrainingDurationSeconds = 8 * 60
@@ -204,6 +206,9 @@ const rucoyUltimateManaPotionMin = 600
 const rucoyUltimateManaPotionMax = 900
 const rucoyUltimateManaPotionPackSize = 200
 const rucoyUltimateManaPotionPackGold = 130000
+const rucoyPallyArrowsPerSkill = 4
+const rucoyPallyArrowBundleSize = 500
+const rucoyPallyArrowBundleGold = 1000
 
 func RucoyAFKGuild(m *messages.Message) {
 	guild := strings.Join(*m.Args, " ")
@@ -965,23 +970,42 @@ func calculateRucoyUpskillManaEstimate(estimatedTime string, tickrate int, optio
 	maxPacks := ceilDivInt64(maxPotions, rucoyUltimateManaPotionPackSize)
 	minCost := minPacks * rucoyUltimateManaPotionPackGold
 	maxCost := maxPacks * rucoyUltimateManaPotionPackGold
+	totalArrows := int64(0)
+	arrowCost := int64(0)
+	if options.Vocation == "Pally" {
+		totalArrows = totalTicks * rucoyPallyArrowsPerSkill
+		arrowCost = ceilDivInt64(totalArrows, rucoyPallyArrowBundleSize) * rucoyPallyArrowBundleGold
+		minCost += arrowCost
+		maxCost += arrowCost
+	}
 
 	return RucoyUpskillManaEstimate{
-		TotalMana:  totalMana,
-		MinPotions: minPotions,
-		MaxPotions: maxPotions,
-		MinCost:    minCost,
-		MaxCost:    maxCost,
+		TotalMana:   totalMana,
+		MinPotions:  minPotions,
+		MaxPotions:  maxPotions,
+		TotalArrows: totalArrows,
+		ArrowCost:   arrowCost,
+		MinCost:     minCost,
+		MaxCost:     maxCost,
 	}, true
 }
 
 func formatRucoyUpskillManaEstimate(options RucoyUpskillOptions, estimate RucoyUpskillManaEstimate) string {
+	arrowText := ""
+	costLabel := "Custo"
+	if estimate.TotalArrows > 0 {
+		arrowText = fmt.Sprintf("\nFlechas: %s\nCusto flechas: %s gold", formatRucoyNumber(estimate.TotalArrows), formatRucoyNumber(estimate.ArrowCost))
+		costLabel = "Custo total"
+	}
+
 	return fmt.Sprintf(
-		"Gasto estimado com Ultimate Mana Potion\nClasse: %s\nMana total: %s\nPotions: %s a %s\nCusto: %s a %s gold",
+		"Gasto estimado com Ultimate Mana Potion\nClasse: %s\nMana total: %s\nPotions: %s a %s%s\n%s: %s a %s gold",
 		options.Vocation,
 		formatRucoyNumber(estimate.TotalMana),
 		formatRucoyNumber(estimate.MinPotions),
 		formatRucoyNumber(estimate.MaxPotions),
+		arrowText,
+		costLabel,
 		formatRucoyNumber(estimate.MinCost),
 		formatRucoyNumber(estimate.MaxCost),
 	)

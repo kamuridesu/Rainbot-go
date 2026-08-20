@@ -253,6 +253,35 @@ func TestFormatRucoyUpskillManaEstimate(t *testing.T) {
 	}
 }
 
+func TestFormatRucoyUpskillManaEstimateForPallyAddsArrows(t *testing.T) {
+	options := RucoyUpskillOptions{
+		Vocation:     "Pally",
+		ManaPerSkill: 50,
+	}
+	estimate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, options)
+	if !ok {
+		t.Fatal("expected mana estimate to be calculated")
+	}
+	got := formatRucoyUpskillManaEstimate(options, estimate)
+
+	expectedParts := []string{
+		"Classe: Pally",
+		"Mana total: 6.625.000",
+		"Potions: 7.362 a 11.042",
+		"Flechas: 530.000",
+		"Custo flechas: 1.060.000 gold",
+		"Custo total: 5.870.000 a 8.340.000 gold",
+	}
+	for _, part := range expectedParts {
+		if !strings.Contains(got, part) {
+			t.Errorf("expected pally mana estimate to contain %q, got %q", part, got)
+		}
+	}
+	if estimate.TotalArrows != 530000 || estimate.ArrowCost != 1060000 {
+		t.Errorf("unexpected pally arrows estimate: %+v", estimate)
+	}
+}
+
 func TestValidateRucoyTrainInput(t *testing.T) {
 	tests := []struct {
 		name             string

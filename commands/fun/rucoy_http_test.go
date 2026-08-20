@@ -377,6 +377,47 @@ func TestUpskillWithManaEstimateAndDailyHoursInAnyOrder(t *testing.T) {
 	}
 }
 
+func TestUpskillWithPallyAddsArrowCostInAnyOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"vocation then daily hours", []string{"400", "450", "5000", "pally", "8"}},
+		{"daily hours then vocation", []string{"400", "450", "5000", "8", "pally"}},
+		{"vocation only", []string{"400", "450", "5000", "pally"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("01:02:30"))
+			})
+
+			fake := &botfakes.FakeClient{}
+			m := newTestMessage(t, fake, newTestDB(t))
+			*m.Args = tt.args
+
+			Upskill(m)
+
+			text := lastReplyText(fake)
+			expectedParts := []string{
+				"Classe: Pally",
+				"Flechas: 530.000",
+				"Custo flechas: 1.060.000 gold",
+				"Custo total: 5.870.000 a 8.340.000 gold",
+			}
+			for _, part := range expectedParts {
+				if !strings.Contains(text, part) {
+					t.Errorf("expected pally upskill reply to contain %q for args %v, got %q", part, tt.args, text)
+				}
+			}
+			if sentImageCount(fake) != 1 {
+				t.Errorf("expected one generated pally upskill card image for args %v, got %d", tt.args, sentImageCount(fake))
+			}
+		})
+	}
+}
+
 func TestUpskillInvalidDailyHours(t *testing.T) {
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, newTestDB(t))
