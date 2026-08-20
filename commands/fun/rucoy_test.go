@@ -239,9 +239,9 @@ func TestFormatRucoyUpskillManaEstimate(t *testing.T) {
 	expectedParts := []string{
 		"Gasto estimado com Ultimate Mana Potion",
 		"Classe: Kina",
-		"Mana total: 6.625.000",
-		"Potions: 7.362 a 11.042",
-		"Custo: 4.810.000 a 7.280.000 gold",
+		"Mana total: 4.770.000",
+		"Potions: 5.300 a 7.950",
+		"Custo: 3.510.000 a 5.200.000 gold",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(got, part) {
@@ -266,11 +266,11 @@ func TestFormatRucoyUpskillManaEstimateForPallyAddsArrows(t *testing.T) {
 
 	expectedParts := []string{
 		"Classe: Pally",
-		"Mana total: 6.625.000",
-		"Potions: 7.362 a 11.042",
+		"Mana total: 4.770.000",
+		"Potions: 5.300 a 7.950",
 		"Flechas: 381.600",
 		"Custo flechas: 764.000 gold",
-		"Custo total: 5.574.000 a 8.044.000 gold",
+		"Custo total: 4.274.000 a 5.964.000 gold",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(got, part) {
@@ -279,6 +279,40 @@ func TestFormatRucoyUpskillManaEstimateForPallyAddsArrows(t *testing.T) {
 	}
 	if estimate.TotalArrows != 381600 || estimate.ArrowCost != 764000 {
 		t.Errorf("unexpected pally arrows estimate: %+v", estimate)
+	}
+}
+
+func TestRucoyUpskillManaEstimateUsesOneSkillPerSecond(t *testing.T) {
+	kina := RucoyUpskillOptions{
+		Vocation:     "Kina",
+		ManaPerSkill: 50,
+	}
+	lowTickrate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, kina)
+	if !ok {
+		t.Fatal("expected low tickrate estimate")
+	}
+	highTickrate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 42000, kina)
+	if !ok {
+		t.Fatal("expected high tickrate estimate")
+	}
+	if lowTickrate != highTickrate {
+		t.Errorf("mana estimate should not change by tickrate:\nlow=%+v\nhigh=%+v", lowTickrate, highTickrate)
+	}
+	if lowTickrate.TotalMana != 4770000 || lowTickrate.MinPotions != 5300 || lowTickrate.MaxPotions != 7950 {
+		t.Errorf("unexpected kina estimate: %+v", lowTickrate)
+	}
+
+	mage := RucoyUpskillOptions{
+		Vocation:     "Mage",
+		ManaPerSkill: 40,
+	}
+	mageEstimate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 42000, mage)
+	if !ok {
+		t.Fatal("expected mage estimate")
+	}
+	if mageEstimate.TotalMana != 3816000 || mageEstimate.MinPotions != 4240 || mageEstimate.MaxPotions != 6360 ||
+		mageEstimate.MinCost != 2860000 || mageEstimate.MaxCost != 4160000 {
+		t.Errorf("unexpected mage estimate: %+v", mageEstimate)
 	}
 }
 

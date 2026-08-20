@@ -19,11 +19,11 @@ func TestGenerateRucoyUpskillCard(t *testing.T) {
 			ManaPerSkill: 50,
 		},
 		ManaEstimate: RucoyUpskillManaEstimate{
-			TotalMana:  6625000,
-			MinPotions: 7362,
-			MaxPotions: 11042,
-			MinCost:    4810000,
-			MaxCost:    7280000,
+			TotalMana:  4770000,
+			MinPotions: 5300,
+			MaxPotions: 7950,
+			MinCost:    3510000,
+			MaxCost:    5200000,
 		},
 	})
 	if err != nil {
@@ -49,13 +49,13 @@ func TestGenerateRucoyUpskillCardForPally(t *testing.T) {
 			ManaPerSkill: 50,
 		},
 		ManaEstimate: RucoyUpskillManaEstimate{
-			TotalMana:   6625000,
-			MinPotions:  7362,
-			MaxPotions:  11042,
+			TotalMana:   4770000,
+			MinPotions:  5300,
+			MaxPotions:  7950,
 			TotalArrows: 381600,
 			ArrowCost:   764000,
-			MinCost:     5574000,
-			MaxCost:     8044000,
+			MinCost:     4274000,
+			MaxCost:     5964000,
 		},
 	})
 	if err != nil {

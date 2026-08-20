@@ -963,8 +963,8 @@ func calculateRucoyUpskillManaEstimate(estimatedTime string, tickrate int, optio
 		return RucoyUpskillManaEstimate{}, false
 	}
 
-	totalTicks := ceilDivInt64(int64(tickrate)*totalMinutes, 60)
-	totalMana := totalTicks * options.ManaPerSkill
+	totalSkillUses := totalMinutes * 60
+	totalMana := totalSkillUses * options.ManaPerSkill
 	minPotions := ceilDivInt64(totalMana, rucoyUltimateManaPotionMax)
 	maxPotions := ceilDivInt64(totalMana, rucoyUltimateManaPotionMin)
 	minPacks := ceilDivInt64(minPotions, rucoyUltimateManaPotionPackSize)
@@ -974,7 +974,7 @@ func calculateRucoyUpskillManaEstimate(estimatedTime string, tickrate int, optio
 	totalArrows := int64(0)
 	arrowCost := int64(0)
 	if options.Vocation == "Pally" {
-		totalArrows = totalMinutes * 60 * rucoyPallySkillsPerSecond * rucoyPallyArrowsPerSkill
+		totalArrows = totalSkillUses * rucoyPallySkillsPerSecond * rucoyPallyArrowsPerSkill
 		arrowCost = ceilDivInt64(totalArrows, rucoyPallyArrowBundleSize) * rucoyPallyArrowBundleGold
 		minCost += arrowCost
 		maxCost += arrowCost

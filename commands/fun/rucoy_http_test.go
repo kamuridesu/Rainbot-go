@@ -323,9 +323,9 @@ func TestUpskillWithManaEstimate(t *testing.T) {
 		"Tempo estimado: 26 horas e 30 minutos",
 		"Gasto estimado com Ultimate Mana Potion",
 		"Classe: Kina",
-		"Mana total: 6.625.000",
-		"Potions: 7.362 a 11.042",
-		"Custo: 4.810.000 a 7.280.000 gold",
+		"Mana total: 4.770.000",
+		"Potions: 5.300 a 7.950",
+		"Custo: 3.510.000 a 5.200.000 gold",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(text, part) {
@@ -367,7 +367,7 @@ func TestUpskillWithManaEstimateAndDailyHoursInAnyOrder(t *testing.T) {
 			text := lastReplyText(fake)
 			if !strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") ||
 				!strings.Contains(text, "Classe: Kina") ||
-				!strings.Contains(text, "Custo: 4.810.000 a 7.280.000 gold") {
+				!strings.Contains(text, "Custo: 3.510.000 a 5.200.000 gold") {
 				t.Errorf("expected daily and mana estimates for args %v, got %q", tt.args, text)
 			}
 			if sentImageCount(fake) != 1 {
@@ -404,7 +404,7 @@ func TestUpskillWithPallyAddsArrowCostInAnyOrder(t *testing.T) {
 				"Classe: Pally",
 				"Flechas: 381.600",
 				"Custo flechas: 764.000 gold",
-				"Custo total: 5.574.000 a 8.044.000 gold",
+				"Custo total: 4.274.000 a 5.964.000 gold",
 			}
 			for _, part := range expectedParts {
 				if !strings.Contains(text, part) {
