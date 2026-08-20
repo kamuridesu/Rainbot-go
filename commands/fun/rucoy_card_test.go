@@ -49,3 +49,21 @@ func TestCompactRucoyDuration(t *testing.T) {
 		t.Errorf("compactRucoyDailyDuration() = %q", got)
 	}
 }
+
+func TestFormatRucoyCardNumber(t *testing.T) {
+	tests := []struct {
+		value int64
+		want  string
+	}{
+		{999, "999"},
+		{596362, "596K"},
+		{536725000, "536.7KK"},
+		{581000000, "581KK"},
+	}
+
+	for _, tt := range tests {
+		if got := formatRucoyCardNumber(tt.value); got != tt.want {
+			t.Errorf("formatRucoyCardNumber(%d) = %q, want %q", tt.value, got, tt.want)
+		}
+	}
+}

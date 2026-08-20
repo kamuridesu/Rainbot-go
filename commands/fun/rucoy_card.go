@@ -40,21 +40,22 @@ func generateRucoyUpskillCard(data RucoyUpskillCardData) ([]byte, error) {
 	green := color.RGBA{R: 139, G: 221, B: 59, A: 255}
 	blue := color.RGBA{R: 93, G: 210, B: 255, A: 255}
 
-	drawCenteredPixelText(card, "UPSKILL RUCOY", 512, 105, 6, gold)
-	drawCenteredPixelText(card, fmt.Sprintf("%d -> %d", data.FromSkill, data.ToSkill), 600, 385, 6, green)
+	drawCenteredFitPixelText(card, "UPSKILL RUCOY", 512, 130, 520, 5, gold)
+	drawCenteredFitPixelText(card, fmt.Sprintf("%d -> %d", data.FromSkill, data.ToSkill), 610, 350, 470, 5, green)
 
 	timeText := compactRucoyDuration(data.EstimatedTime)
-	drawFitPixelText(card, strings.ToUpper(data.Options.Vocation), 315, 590, 530, 5, gold)
-	drawFitPixelText(card, timeText, 315, 655, 530, 5, cream)
+	drawCenteredFitPixelText(card, strings.ToUpper(data.Options.Vocation), 590, 560, 500, 4, gold)
+	drawCenteredFitPixelText(card, "TEMPO "+timeText, 590, 620, 500, 4, cream)
 	if data.DailyHours > 0 {
-		drawFitPixelText(card, compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), 315, 712, 530, 3, blue)
+		drawCenteredFitPixelText(card, compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), 590, 675, 500, 3, blue)
 	}
 
-	drawFitPixelText(card, "MANA "+formatRucoyNumber(data.ManaEstimate.TotalMana), 315, 835, 560, 4, blue)
-	drawFitPixelText(card, fmt.Sprintf("POTIONS %s - %s", formatRucoyNumber(data.ManaEstimate.MinPotions), formatRucoyNumber(data.ManaEstimate.MaxPotions)), 315, 895, 560, 4, cream)
+	drawCenteredFitPixelText(card, "MANA "+formatRucoyCardNumber(data.ManaEstimate.TotalMana), 590, 805, 530, 4, blue)
+	drawCenteredFitPixelText(card, fmt.Sprintf("POTIONS %s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), 590, 865, 530, 4, cream)
 
-	drawFitPixelText(card, fmt.Sprintf("PACKS %s - %s", formatRucoyNumber(data.ManaEstimate.MinPacks), formatRucoyNumber(data.ManaEstimate.MaxPacks)), 315, 1120, 560, 5, cream)
-	drawFitPixelText(card, fmt.Sprintf("GOLD %s - %s", formatRucoyNumber(data.ManaEstimate.MinCost), formatRucoyNumber(data.ManaEstimate.MaxCost)), 245, 1350, 710, 4, cream)
+	drawCenteredFitPixelText(card, fmt.Sprintf("PACKS %s - %s", formatRucoyNumber(data.ManaEstimate.MinPacks), formatRucoyNumber(data.ManaEstimate.MaxPacks)), 590, 1085, 530, 4, cream)
+	drawCenteredFitPixelText(card, "GOLD", 555, 1260, 620, 4, gold)
+	drawCenteredFitPixelText(card, fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), 555, 1320, 620, 3, cream)
 
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, card, &jpeg.Options{Quality: 92}); err != nil {
@@ -98,6 +99,13 @@ func drawImage(dst *image.RGBA, src image.Image) {
 func drawCenteredPixelText(dst *image.RGBA, text string, centerX int, y int, scale int, clr color.RGBA) {
 	width := pixelTextWidth(text, scale)
 	drawPixelText(dst, text, centerX-width/2, y, scale, clr)
+}
+
+func drawCenteredFitPixelText(dst *image.RGBA, text string, centerX int, y int, maxWidth int, scale int, clr color.RGBA) {
+	for scale > 1 && pixelTextWidth(text, scale) > maxWidth {
+		scale--
+	}
+	drawCenteredPixelText(dst, text, centerX, y, scale, clr)
 }
 
 func drawFitPixelText(dst *image.RGBA, text string, x int, y int, maxWidth int, scale int, clr color.RGBA) {
@@ -180,4 +188,15 @@ func compactRucoyMinutes(totalMinutes int64) string {
 		return fmt.Sprintf("%dH", hours)
 	}
 	return fmt.Sprintf("%dH %dMIN", hours, minutes)
+}
+
+func formatRucoyCardNumber(value int64) string {
+	switch {
+	case value >= 1000000:
+		return strings.ReplaceAll(fmt.Sprintf("%.1fKK", float64(value)/1000000), ".0KK", "KK")
+	case value >= 1000:
+		return strings.ReplaceAll(fmt.Sprintf("%.0fK", float64(value)/1000), ".0K", "K")
+	default:
+		return formatRucoyNumber(value)
+	}
 }
