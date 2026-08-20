@@ -65,3 +65,19 @@ func TestFormatRucoyCardNumber(t *testing.T) {
 		}
 	}
 }
+
+func TestFitPixelTextScaleUsesVisualWidth(t *testing.T) {
+	text := "UPSKILL RUCOY"
+	maxWidth := pixelTextWidth(text, 5)
+
+	if pixelTextVisualWidth(text, 5) <= maxWidth {
+		t.Fatal("expected visual width to include the shadow offset")
+	}
+	scale := fitPixelTextScale(text, maxWidth, 5)
+	if scale >= 5 {
+		t.Fatalf("expected scale to shrink when the shadow would exceed max width, got %d", scale)
+	}
+	if got := pixelTextVisualWidth(text, scale); got > maxWidth {
+		t.Fatalf("fitted visual width = %d, want <= %d", got, maxWidth)
+	}
+}
