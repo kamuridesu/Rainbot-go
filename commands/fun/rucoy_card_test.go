@@ -22,8 +22,6 @@ func TestGenerateRucoyUpskillCard(t *testing.T) {
 			TotalMana:  6625000,
 			MinPotions: 7362,
 			MaxPotions: 11042,
-			MinPacks:   37,
-			MaxPacks:   56,
 			MinCost:    4810000,
 			MaxCost:    7280000,
 		},

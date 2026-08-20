@@ -325,13 +325,15 @@ func TestUpskillWithManaEstimate(t *testing.T) {
 		"Classe: Kina",
 		"Mana total: 6.625.000",
 		"Potions: 7.362 a 11.042",
-		"Packs de 200: 37 a 56",
 		"Custo: 4.810.000 a 7.280.000 gold",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(text, part) {
 			t.Errorf("expected upskill mana reply to contain %q, got %q", part, text)
 		}
+	}
+	if strings.Contains(strings.ToLower(text), "pack") {
+		t.Errorf("expected upskill mana reply not to mention packs, got %q", text)
 	}
 	if strings.Contains(text, "Treinando 8h por dia") {
 		t.Errorf("expected no daily training estimate when daily hours are omitted, got %q", text)

@@ -241,13 +241,15 @@ func TestFormatRucoyUpskillManaEstimate(t *testing.T) {
 		"Classe: Kina",
 		"Mana total: 6.625.000",
 		"Potions: 7.362 a 11.042",
-		"Packs de 200: 37 a 56",
 		"Custo: 4.810.000 a 7.280.000 gold",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(got, part) {
 			t.Errorf("expected mana estimate to contain %q, got %q", part, got)
 		}
+	}
+	if strings.Contains(strings.ToLower(got), "pack") {
+		t.Errorf("expected mana estimate not to mention packs, got %q", got)
 	}
 }
 

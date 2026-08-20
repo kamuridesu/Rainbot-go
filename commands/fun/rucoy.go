@@ -194,8 +194,6 @@ type RucoyUpskillManaEstimate struct {
 	TotalMana  int64
 	MinPotions int64
 	MaxPotions int64
-	MinPacks   int64
-	MaxPacks   int64
 	MinCost    int64
 	MaxCost    int64
 }
@@ -972,8 +970,6 @@ func calculateRucoyUpskillManaEstimate(estimatedTime string, tickrate int, optio
 		TotalMana:  totalMana,
 		MinPotions: minPotions,
 		MaxPotions: maxPotions,
-		MinPacks:   minPacks,
-		MaxPacks:   maxPacks,
 		MinCost:    minCost,
 		MaxCost:    maxCost,
 	}, true
@@ -981,13 +977,11 @@ func calculateRucoyUpskillManaEstimate(estimatedTime string, tickrate int, optio
 
 func formatRucoyUpskillManaEstimate(options RucoyUpskillOptions, estimate RucoyUpskillManaEstimate) string {
 	return fmt.Sprintf(
-		"Gasto estimado com Ultimate Mana Potion\nClasse: %s\nMana total: %s\nPotions: %s a %s\nPacks de 200: %s a %s\nCusto: %s a %s gold",
+		"Gasto estimado com Ultimate Mana Potion\nClasse: %s\nMana total: %s\nPotions: %s a %s\nCusto: %s a %s gold",
 		options.Vocation,
 		formatRucoyNumber(estimate.TotalMana),
 		formatRucoyNumber(estimate.MinPotions),
 		formatRucoyNumber(estimate.MaxPotions),
-		formatRucoyNumber(estimate.MinPacks),
-		formatRucoyNumber(estimate.MaxPacks),
 		formatRucoyNumber(estimate.MinCost),
 		formatRucoyNumber(estimate.MaxCost),
 	)
