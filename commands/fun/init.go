@@ -3,6 +3,7 @@ package fun
 import (
 	"strings"
 
+	"github.com/kamuridesu/rainbot-go/commands/rucoy"
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/core/modules/lyrics"
@@ -139,7 +140,7 @@ func init() {
 		&[]string{"ronline"},
 		nil,
 		true, true, false,
-		RucoyOnlineGuild,
+		rucoy.RucoyOnlineGuild,
 		commands.HasArgs(1),
 	)
 
@@ -149,7 +150,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 400 450 5000", "${prefix}${alias} 400 450 5000 kina 8"},
 		true, true, false,
-		Upskill,
+		rucoy.Upskill,
 		commands.HasArgs(3),
 	)
 
@@ -159,7 +160,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 350 400 20kk"},
 		true, true, false,
-		Uplevel,
+		rucoy.Uplevel,
 		commands.HasArgs(3),
 	)
 
@@ -169,7 +170,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 5 351 391 -50"},
 		true, true, false,
-		RucoyTrain,
+		rucoy.RucoyTrain,
 		commands.HasArgs(4),
 	)
 
@@ -179,7 +180,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} B L A C K O U T"},
 		true, true, false,
-		RucoyAFKGuild,
+		rucoy.RucoyAFKGuild,
 		commands.HasArgs(1),
 	)
 
@@ -189,7 +190,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} Nome do Jogador"},
 		true, true, false,
-		RucoyInfo,
+		rucoy.RucoyInfo,
 		commands.HasArgs(1),
 	)
 
@@ -199,7 +200,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 400 B L A C K O U T"},
 		true, true, false,
-		RucoyMetaGuild,
+		rucoy.RucoyMetaGuild,
 		commands.HasArgs(2),
 	)
 

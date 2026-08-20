@@ -1,4 +1,4 @@
-package fun
+package rucoy
 
 import (
 	"bytes"
@@ -116,12 +116,15 @@ func loadRucoyUpskillCardTemplate(options RucoyUpskillOptions) (image.Image, err
 		}
 	}
 	if file == nil {
-		return nil, err
+		return nil, fmt.Errorf("template %s nao encontrado em %s: %w", templateName, strings.Join(paths, ", "), err)
 	}
 	defer file.Close()
 
 	img, _, err := image.Decode(file)
-	return img, err
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler template %s: %w", templateName, err)
+	}
+	return img, nil
 }
 
 func drawImage(dst *image.RGBA, src image.Image) {

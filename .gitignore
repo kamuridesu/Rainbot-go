@@ -8,5 +8,5 @@
 *.mp4
 *.env
 *.png
-!assets/rucoy/upskill-card-template.png
+!assets/rucoy/*.png
 coverage.out
