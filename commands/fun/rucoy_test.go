@@ -2,6 +2,7 @@ package fun
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -98,9 +99,13 @@ func TestParseRucoyLastOnlineDays(t *testing.T) {
 		{"minutes ago rounds to 0", `<td>Last online</td><td>10 minutes ago</td>`, 0},
 		{"hours ago rounds to 0", `<td>Last online</td><td>3 hours ago</td>`, 0},
 		{"days ago", `<td>Last online</td><td>5 days ago</td>`, 5},
+		{"about days ago", `<td>Last online</td><td>about 8 days ago</td>`, 8},
+		{"over years ago", `<td>Last online</td><td>over 5 years ago</td>`, 1825},
+		{"a day ago", `<td>Last online</td><td>a day ago</td>`, 1},
 		{"weeks ago converted to days", `<td>Last online</td><td>2 weeks ago</td>`, 14},
 		{"months ago converted to days", `<td>Last online</td><td>3 months ago</td>`, 90},
 		{"years ago converted to days", `<td>Last online</td><td>1 year ago</td>`, 365},
+		{"offline loading ignored", `<td>Last online</td><td>offline loading...</td>`, 0},
 		{"missing row", `<td>Something else</td><td>5 days ago</td>`, 0},
 	}
 
@@ -131,6 +136,183 @@ func TestFormatUpskillTime(t *testing.T) {
 				t.Errorf("formatUpskillTime(%q) = %q, want %q", tt.raw, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseRucoyDailyHours(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    int
+		wantErr bool
+	}{
+		{"empty optional argument", nil, 0, false},
+		{"valid daily hours", []string{"8"}, 8, false},
+		{"zero is invalid", []string{"0"}, 0, true},
+		{"above 24 is invalid", []string{"25"}, 0, true},
+		{"text is invalid", []string{"abc"}, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseRucoyDailyHours(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseRucoyDailyHours(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("parseRucoyDailyHours(%v) = %d, want %d", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseRucoyUpskillOptions(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		wantDailyHours int
+		wantVocation   string
+		wantMana       int64
+		wantErr        bool
+	}{
+		{"no optional args", nil, 0, "", 0, false},
+		{"daily hours only", []string{"8"}, 8, "", 0, false},
+		{"vocation only", []string{"kina"}, 0, "Kina", 50, false},
+		{"vocation then daily hours", []string{"kina", "8"}, 8, "Kina", 50, false},
+		{"daily hours then vocation", []string{"8", "kina"}, 8, "Kina", 50, false},
+		{"pally mana", []string{"pally"}, 0, "Pally", 50, false},
+		{"mage mana", []string{"mage"}, 0, "Mage", 40, false},
+		{"invalid daily hours", []string{"25"}, 0, "", 0, true},
+		{"invalid vocation", []string{"archer"}, 0, "", 0, true},
+		{"duplicated daily hours", []string{"8", "9"}, 0, "", 0, true},
+		{"duplicated vocation", []string{"kina", "mage"}, 0, "", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseRucoyUpskillOptions(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseRucoyUpskillOptions(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+			}
+			if got.DailyHours != tt.wantDailyHours || got.Vocation != tt.wantVocation || got.ManaPerSkill != tt.wantMana {
+				t.Errorf("parseRucoyUpskillOptions(%v) = %+v, want hours %d vocation %q mana %d",
+					tt.args, got, tt.wantDailyHours, tt.wantVocation, tt.wantMana)
+			}
+		})
+	}
+}
+
+func TestFormatRucoyDailyTrainingEstimate(t *testing.T) {
+	tests := []struct {
+		name          string
+		estimatedTime string
+		dailyHours    int
+		want          string
+	}{
+		{"exact days", "24 horas e 0 minutos", 8, "Treinando 8h por dia: 3 dias"},
+		{"days with remainder", "26 horas e 30 minutos", 8, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos"},
+		{"less than one daily session", "5 horas e 30 minutos", 8, "Treinando 8h por dia: 5 horas e 30 minutos"},
+		{"minutes only", "45 minutos", 8, "Treinando 8h por dia: 45 minutos"},
+		{"unparseable returns empty", "???", 8, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatRucoyDailyTrainingEstimate(tt.estimatedTime, tt.dailyHours); got != tt.want {
+				t.Errorf("formatRucoyDailyTrainingEstimate(%q, %d) = %q, want %q", tt.estimatedTime, tt.dailyHours, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatRucoyUpskillManaEstimate(t *testing.T) {
+	options := RucoyUpskillOptions{
+		Vocation:     "Kina",
+		ManaPerSkill: 50,
+	}
+	estimate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, options)
+	if !ok {
+		t.Fatal("expected mana estimate to be calculated")
+	}
+	got := formatRucoyUpskillManaEstimate(options, estimate)
+
+	expectedParts := []string{
+		"Gasto estimado com Ultimate Mana Potion",
+		"Classe: Kina",
+		"Mana total: 4.770.000",
+		"Potions: 5.300 a 7.950",
+		"Custo: 3.510.000 a 5.200.000 gold",
+	}
+	for _, part := range expectedParts {
+		if !strings.Contains(got, part) {
+			t.Errorf("expected mana estimate to contain %q, got %q", part, got)
+		}
+	}
+	if strings.Contains(strings.ToLower(got), "pack") {
+		t.Errorf("expected mana estimate not to mention packs, got %q", got)
+	}
+}
+
+func TestFormatRucoyUpskillManaEstimateForPallyAddsArrows(t *testing.T) {
+	options := RucoyUpskillOptions{
+		Vocation:     "Pally",
+		ManaPerSkill: 50,
+	}
+	estimate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, options)
+	if !ok {
+		t.Fatal("expected mana estimate to be calculated")
+	}
+	got := formatRucoyUpskillManaEstimate(options, estimate)
+
+	expectedParts := []string{
+		"Classe: Pally",
+		"Mana total: 4.770.000",
+		"Potions: 5.300 a 7.950",
+		"Flechas: 381.600",
+		"Custo flechas: 764.000 gold",
+		"Custo total: 4.274.000 a 5.964.000 gold",
+	}
+	for _, part := range expectedParts {
+		if !strings.Contains(got, part) {
+			t.Errorf("expected pally mana estimate to contain %q, got %q", part, got)
+		}
+	}
+	if estimate.TotalArrows != 381600 || estimate.ArrowCost != 764000 {
+		t.Errorf("unexpected pally arrows estimate: %+v", estimate)
+	}
+}
+
+func TestRucoyUpskillManaEstimateUsesOneSkillPerSecond(t *testing.T) {
+	kina := RucoyUpskillOptions{
+		Vocation:     "Kina",
+		ManaPerSkill: 50,
+	}
+	lowTickrate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 5000, kina)
+	if !ok {
+		t.Fatal("expected low tickrate estimate")
+	}
+	highTickrate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 42000, kina)
+	if !ok {
+		t.Fatal("expected high tickrate estimate")
+	}
+	if lowTickrate != highTickrate {
+		t.Errorf("mana estimate should not change by tickrate:\nlow=%+v\nhigh=%+v", lowTickrate, highTickrate)
+	}
+	if lowTickrate.TotalMana != 4770000 || lowTickrate.MinPotions != 5300 || lowTickrate.MaxPotions != 7950 {
+		t.Errorf("unexpected kina estimate: %+v", lowTickrate)
+	}
+
+	mage := RucoyUpskillOptions{
+		Vocation:     "Mage",
+		ManaPerSkill: 40,
+	}
+	mageEstimate, ok := calculateRucoyUpskillManaEstimate("26 horas e 30 minutos", 42000, mage)
+	if !ok {
+		t.Fatal("expected mage estimate")
+	}
+	if mageEstimate.TotalMana != 3816000 || mageEstimate.MinPotions != 4240 || mageEstimate.MaxPotions != 6360 ||
+		mageEstimate.MinCost != 2860000 || mageEstimate.MaxCost != 4160000 {
+		t.Errorf("unexpected mage estimate: %+v", mageEstimate)
 	}
 }
 

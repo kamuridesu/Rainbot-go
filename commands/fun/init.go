@@ -147,7 +147,7 @@ func init() {
 		"Calcula quanto tempo demora para ir de uma skill ate outra no Rucoy Online",
 		"rucoy",
 		nil,
-		&[]string{"${prefix}${alias} 400 450 5000"},
+		&[]string{"${prefix}${alias} 400 450 5000", "${prefix}${alias} 400 450 5000 kina 8"},
 		true, true, false,
 		Upskill,
 		commands.HasArgs(3),

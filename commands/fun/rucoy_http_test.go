@@ -33,10 +33,22 @@ func guildRowHTML(name string, level int, online bool) string {
 }
 
 func lastReplyText(fake *botfakes.FakeClient) string {
-	if len(fake.SentMessages) == 0 {
-		return ""
+	for index := len(fake.SentMessages) - 1; index >= 0; index-- {
+		if textMessage := fake.SentMessages[index].Message.GetExtendedTextMessage(); textMessage != nil {
+			return textMessage.GetText()
+		}
 	}
-	return fake.SentMessages[len(fake.SentMessages)-1].Message.GetExtendedTextMessage().GetText()
+	return ""
+}
+
+func sentImageCount(fake *botfakes.FakeClient) int {
+	total := 0
+	for _, sent := range fake.SentMessages {
+		if sent.Message.GetImageMessage() != nil {
+			total++
+		}
+	}
+	return total
 }
 
 func TestRucoyOnlineGuildSuccess(t *testing.T) {
@@ -196,6 +208,70 @@ func TestRucoyAFKGuildDetectsInactiveMember(t *testing.T) {
 	}
 }
 
+func TestRucoyAFKGuildUsesRucoyStatsLastOnline(t *testing.T) {
+	characterRequests := 0
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/api/Guild/onlines-of-guild="):
+			w.Write([]byte(`{"players":[
+				{"name":"Old Player","lastOnline":"30 days ago"},
+				{"name":"Recent Player","lastOnline":"6 days ago"},
+				{"name":"Year Player","lastOnline":"over 1 year ago"},
+				{"name":"Online Player","lastOnline":"currently online"}
+			]}`))
+		case strings.Contains(r.URL.Path, "/characters/"):
+			characterRequests++
+			w.Write([]byte(`<td>Last online</td><td>10 days ago</td>`))
+		}
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"TestGuild"}
+
+	RucoyAFKGuild(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Old Player 30 dias offline") ||
+		!strings.Contains(text, "Year Player 365 dias offline") ||
+		strings.Contains(text, "Recent Player") ||
+		strings.Contains(text, "Online Player") {
+		t.Errorf("expected inactive members from RucoyStats reply, got %q", text)
+	}
+	if characterRequests != 0 {
+		t.Errorf("expected no character profile requests when RucoyStats succeeds, got %d", characterRequests)
+	}
+}
+
+func TestRucoyAFKGuildFallsBackWhenRucoyStatsIsUnavailable(t *testing.T) {
+	characterRequests := 0
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/api/Guild/onlines-of-guild="):
+			w.WriteHeader(http.StatusInternalServerError)
+		case strings.Contains(r.URL.Path, "/guild/"):
+			w.Write([]byte("<table>" + guildRowHTML("Online Guy", 50, true) + guildRowHTML("Offline Guy", 50, false) + "</table>"))
+		case strings.Contains(r.URL.Path, "/characters/"):
+			characterRequests++
+			w.Write([]byte(`<td>Last online</td><td>10 days ago</td>`))
+		}
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"TestGuild"}
+
+	RucoyAFKGuild(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Offline Guy 10 dias offline") || strings.Contains(text, "Online Guy") {
+		t.Errorf("expected fallback to check only offline members, got %q", text)
+	}
+	if characterRequests != 1 {
+		t.Errorf("expected only one character profile request in fallback, got %d", characterRequests)
+	}
+}
+
 func TestUpskillSuccess(t *testing.T) {
 	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("02:30:00"))
@@ -210,6 +286,148 @@ func TestUpskillSuccess(t *testing.T) {
 	text := lastReplyText(fake)
 	if !strings.Contains(text, "Upskill Rucoy") || !strings.Contains(text, "horas") {
 		t.Errorf("expected a formatted upskill reply, got %q", text)
+	}
+}
+
+func TestUpskillWithDailyHours(t *testing.T) {
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("01:02:30"))
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"400", "450", "5000", "8"}
+
+	Upskill(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Tempo estimado: 26 horas e 30 minutos") ||
+		!strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") {
+		t.Errorf("expected daily training estimate in upskill reply, got %q", text)
+	}
+}
+
+func TestUpskillWithManaEstimate(t *testing.T) {
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("01:02:30"))
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"400", "450", "5000", "kina"}
+
+	Upskill(m)
+
+	text := lastReplyText(fake)
+	expectedParts := []string{
+		"Tempo estimado: 26 horas e 30 minutos",
+		"Gasto estimado com Ultimate Mana Potion",
+		"Classe: Kina",
+		"Mana total: 4.770.000",
+		"Potions: 5.300 a 7.950",
+		"Custo: 3.510.000 a 5.200.000 gold",
+	}
+	for _, part := range expectedParts {
+		if !strings.Contains(text, part) {
+			t.Errorf("expected upskill mana reply to contain %q, got %q", part, text)
+		}
+	}
+	if strings.Contains(strings.ToLower(text), "pack") {
+		t.Errorf("expected upskill mana reply not to mention packs, got %q", text)
+	}
+	if strings.Contains(text, "Treinando 8h por dia") {
+		t.Errorf("expected no daily training estimate when daily hours are omitted, got %q", text)
+	}
+	if sentImageCount(fake) != 1 {
+		t.Errorf("expected one generated upskill card image, got %d", sentImageCount(fake))
+	}
+}
+
+func TestUpskillWithManaEstimateAndDailyHoursInAnyOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"vocation then daily hours", []string{"400", "450", "5000", "kina", "8"}},
+		{"daily hours then vocation", []string{"400", "450", "5000", "8", "kina"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("01:02:30"))
+			})
+
+			fake := &botfakes.FakeClient{}
+			m := newTestMessage(t, fake, newTestDB(t))
+			*m.Args = tt.args
+
+			Upskill(m)
+
+			text := lastReplyText(fake)
+			if !strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") ||
+				!strings.Contains(text, "Classe: Kina") ||
+				!strings.Contains(text, "Custo: 3.510.000 a 5.200.000 gold") {
+				t.Errorf("expected daily and mana estimates for args %v, got %q", tt.args, text)
+			}
+			if sentImageCount(fake) != 1 {
+				t.Errorf("expected one generated upskill card image for args %v, got %d", tt.args, sentImageCount(fake))
+			}
+		})
+	}
+}
+
+func TestUpskillWithPallyAddsArrowCostInAnyOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"vocation then daily hours", []string{"400", "450", "5000", "pally", "8"}},
+		{"daily hours then vocation", []string{"400", "450", "5000", "8", "pally"}},
+		{"vocation only", []string{"400", "450", "5000", "pally"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("01:02:30"))
+			})
+
+			fake := &botfakes.FakeClient{}
+			m := newTestMessage(t, fake, newTestDB(t))
+			*m.Args = tt.args
+
+			Upskill(m)
+
+			text := lastReplyText(fake)
+			expectedParts := []string{
+				"Classe: Pally",
+				"Flechas: 381.600",
+				"Custo flechas: 764.000 gold",
+				"Custo total: 4.274.000 a 5.964.000 gold",
+			}
+			for _, part := range expectedParts {
+				if !strings.Contains(text, part) {
+					t.Errorf("expected pally upskill reply to contain %q for args %v, got %q", part, tt.args, text)
+				}
+			}
+			if sentImageCount(fake) != 1 {
+				t.Errorf("expected one generated pally upskill card image for args %v, got %d", tt.args, sentImageCount(fake))
+			}
+		})
+	}
+}
+
+func TestUpskillInvalidDailyHours(t *testing.T) {
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"400", "450", "5000", "25"}
+
+	Upskill(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Opcional invalido") {
+		t.Errorf("expected daily hours validation error, got %q", text)
 	}
 }
 
@@ -244,6 +462,37 @@ func TestUplevelSuccess(t *testing.T) {
 	text := lastReplyText(fake)
 	if !strings.Contains(text, "Uplevel Rucoy") {
 		t.Errorf("expected a formatted uplevel reply, got %q", text)
+	}
+}
+
+func TestUplevelWithDailyHours(t *testing.T) {
+	withRucoyServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("530000000"))
+	})
+
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"350", "400", "20kk", "8"}
+
+	Uplevel(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "Tempo estimado: 26 horas e 30 minutos") ||
+		!strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") {
+		t.Errorf("expected daily training estimate in uplevel reply, got %q", text)
+	}
+}
+
+func TestUplevelInvalidDailyHours(t *testing.T) {
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, newTestDB(t))
+	*m.Args = []string{"350", "400", "20kk", "0"}
+
+	Uplevel(m)
+
+	text := lastReplyText(fake)
+	if !strings.Contains(text, "horas_por_dia") {
+		t.Errorf("expected daily hours validation error, got %q", text)
 	}
 }
 

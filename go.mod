@@ -12,6 +12,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.47
 	github.com/mdp/qrterminal/v3 v3.2.1
 	go.mau.fi/whatsmeow v0.0.0-20260630180629-b572e5bcb92b
+	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.56.0
 	google.golang.org/protobuf v1.36.11
 )
