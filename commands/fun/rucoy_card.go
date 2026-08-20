@@ -40,37 +40,27 @@ func generateRucoyUpskillCard(data RucoyUpskillCardData) ([]byte, error) {
 	green := color.RGBA{R: 139, G: 221, B: 59, A: 255}
 	blue := color.RGBA{R: 93, G: 210, B: 255, A: 255}
 
-	panelCenterX := 596
+	titleCenterX := 512
+	skillCenterX := 594
+	timeCenterX := 600
+	manaCenterX := 594
+	goldCenterX := 612
 
-	drawCenteredPixelTextBlock(card, 512, 118, 228, []rucoyCardTextLine{
-		{text: "UPSKILL RUCOY", maxWidth: 500, scale: 5, color: gold},
-	}, 0)
-	drawCenteredPixelTextBlock(card, panelCenterX, 332, 445, []rucoyCardTextLine{
-		{text: fmt.Sprintf("%d -> %d", data.FromSkill, data.ToSkill), maxWidth: 450, scale: 5, color: green},
-	}, 0)
+	drawCenteredFitPixelTextAtCenter(card, "UPSKILL RUCOY", titleCenterX, 204, 500, 5, gold)
+	drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("%d -> %d", data.FromSkill, data.ToSkill), skillCenterX, 418, 450, 5, green)
 
 	timeText := compactRucoyDuration(data.EstimatedTime)
-	timeLines := []rucoyCardTextLine{
-		{text: strings.ToUpper(data.Options.Vocation), maxWidth: 500, scale: 2, color: gold},
-		{text: "TEMPO", maxWidth: 500, scale: 3, color: gold},
-		{text: timeText, maxWidth: 500, scale: 3, color: cream},
-	}
+	drawCenteredFitPixelTextAtCenter(card, "TEMPO", timeCenterX, 664, 500, 3, gold)
+	drawCenteredFitPixelTextAtCenter(card, timeText, timeCenterX, 708, 500, 3, cream)
 	if data.DailyHours > 0 {
-		timeLines = append(timeLines, rucoyCardTextLine{text: compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), maxWidth: 500, scale: 2, color: blue})
+		drawCenteredFitPixelTextAtCenter(card, compactRucoyDailyDuration(data.EstimatedTime, data.DailyHours), timeCenterX, 750, 500, 2, blue)
 	}
-	drawCenteredPixelTextBlock(card, panelCenterX, 586, 782, timeLines, 6)
 
-	drawCenteredPixelTextBlock(card, panelCenterX, 858, 1044, []rucoyCardTextLine{
-		{text: "MANA", maxWidth: 530, scale: 2, color: blue},
-		{text: formatRucoyCardNumber(data.ManaEstimate.TotalMana), maxWidth: 530, scale: 3, color: cream},
-		{text: "POTIONS", maxWidth: 530, scale: 2, color: blue},
-		{text: fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), maxWidth: 530, scale: 3, color: cream},
-	}, 6)
+	drawCenteredFitPixelTextAtCenter(card, "MANA "+formatRucoyCardNumber(data.ManaEstimate.TotalMana), manaCenterX, 926, 530, 3, blue)
+	drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("POTIONS %s - %s", formatRucoyCardNumber(data.ManaEstimate.MinPotions), formatRucoyCardNumber(data.ManaEstimate.MaxPotions)), manaCenterX, 986, 530, 3, cream)
 
-	drawCenteredPixelTextBlock(card, panelCenterX, 1100, 1322, []rucoyCardTextLine{
-		{text: "GOLD", maxWidth: 620, scale: 3, color: gold},
-		{text: fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), maxWidth: 620, scale: 3, color: cream},
-	}, 18)
+	drawCenteredFitPixelTextAtCenter(card, "GOLD", goldCenterX, 1192, 620, 3, gold)
+	drawCenteredFitPixelTextAtCenter(card, fmt.Sprintf("%s - %s", formatRucoyCardNumber(data.ManaEstimate.MinCost), formatRucoyCardNumber(data.ManaEstimate.MaxCost)), goldCenterX, 1248, 620, 3, cream)
 
 	var out bytes.Buffer
 	if err := jpeg.Encode(&out, card, &jpeg.Options{Quality: 92}); err != nil {
@@ -128,11 +118,33 @@ func drawCenteredFitPixelText(dst *image.RGBA, text string, centerX int, y int, 
 	drawCenteredPixelText(dst, text, centerX, y, scale, clr)
 }
 
+func drawCenteredFitPixelTextAtCenter(dst *image.RGBA, text string, centerX int, centerY int, maxWidth int, scale int, clr color.RGBA) {
+	scale = fitPixelTextScale(text, maxWidth, scale)
+	y := centerY - pixelTextVisualHeight(scale)/2
+	drawCenteredPixelText(dst, text, centerX, y, scale, clr)
+}
+
 func drawCenteredPixelTextBlock(dst *image.RGBA, centerX int, topY int, bottomY int, lines []rucoyCardTextLine, gap int) {
 	if len(lines) == 0 || bottomY <= topY {
 		return
 	}
 
+	totalHeight, scales := fittedPixelTextBlockHeight(lines, gap)
+	y := topY + (bottomY-topY-totalHeight)/2
+	drawPixelTextBlock(dst, centerX, y, lines, scales, gap)
+}
+
+func drawCenteredPixelTextBlockAtCenter(dst *image.RGBA, centerX int, centerY int, lines []rucoyCardTextLine, gap int) {
+	if len(lines) == 0 {
+		return
+	}
+
+	totalHeight, scales := fittedPixelTextBlockHeight(lines, gap)
+	y := centerY - totalHeight/2
+	drawPixelTextBlock(dst, centerX, y, lines, scales, gap)
+}
+
+func fittedPixelTextBlockHeight(lines []rucoyCardTextLine, gap int) (int, []int) {
 	scales := make([]int, len(lines))
 	totalHeight := 0
 	for index, line := range lines {
@@ -140,8 +152,10 @@ func drawCenteredPixelTextBlock(dst *image.RGBA, centerX int, topY int, bottomY 
 		totalHeight += pixelTextVisualHeight(scales[index])
 	}
 	totalHeight += gap * (len(lines) - 1)
+	return totalHeight, scales
+}
 
-	y := topY + (bottomY-topY-totalHeight)/2
+func drawPixelTextBlock(dst *image.RGBA, centerX int, y int, lines []rucoyCardTextLine, scales []int, gap int) {
 	for index, line := range lines {
 		drawCenteredPixelText(dst, line.text, centerX, y, scales[index], line.color)
 		y += pixelTextVisualHeight(scales[index]) + gap
