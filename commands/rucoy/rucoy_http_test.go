@@ -34,11 +34,24 @@ func guildRowHTML(name string, level int, online bool) string {
 
 func lastReplyText(fake *botfakes.FakeClient) string {
 	for index := len(fake.SentMessages) - 1; index >= 0; index-- {
+		if imageMessage := fake.SentMessages[index].Message.GetImageMessage(); imageMessage != nil {
+			return imageMessage.GetCaption()
+		}
 		if textMessage := fake.SentMessages[index].Message.GetExtendedTextMessage(); textMessage != nil {
 			return textMessage.GetText()
 		}
 	}
 	return ""
+}
+
+func sentTextCount(fake *botfakes.FakeClient) int {
+	total := 0
+	for _, sent := range fake.SentMessages {
+		if sent.Message.GetExtendedTextMessage() != nil {
+			total++
+		}
+	}
+	return total
 }
 
 func sentImageCount(fake *botfakes.FakeClient) int {
@@ -340,6 +353,9 @@ func TestUpskillWithManaEstimate(t *testing.T) {
 	}
 	if sentImageCount(fake) != 1 {
 		t.Errorf("expected one generated upskill card image, got %d", sentImageCount(fake))
+	}
+	if sentTextCount(fake) != 0 {
+		t.Errorf("expected upskill text to be sent as the image caption, got %d text messages", sentTextCount(fake))
 	}
 }
 

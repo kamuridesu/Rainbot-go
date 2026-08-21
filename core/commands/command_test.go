@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -171,6 +172,49 @@ func TestDynamicMenuWithCategory(t *testing.T) {
 	menu, _ := dynamicMenu("test", &bot.Bot{Name: &name})
 	if !strings.Contains(menu, testCmdName) {
 		t.Errorf("expected the command name listed, got %q", menu)
+	}
+}
+
+func TestHelpCategorySendsMenuAsBannerCaption(t *testing.T) {
+	cmd, err := FindCommand("help")
+	if err != nil {
+		t.Fatalf("FindCommand(help) error = %v", err)
+	}
+
+	bannerPath := t.TempDir() + "/menu-banner.png"
+	if err := os.WriteFile(bannerPath, []byte("fake-image-bytes"), 0o600); err != nil {
+		t.Fatalf("WriteFile(bannerPath) error = %v", err)
+	}
+	bannerCategory := NewCategory("bannercategorytestonly", &bannerPath)
+	NewCommand(
+		"bannermenutestonly",
+		"a command used only to test category banners",
+		bannerCategory,
+		nil,
+		nil,
+		false,
+		false,
+		false,
+		func(m *messages.Message) {},
+	)
+
+	fake := &botfakes.FakeClient{}
+	m := newCommandsTestMessage(fake, &models.Chat{}, "help")
+	args := []string{bannerCategory.Name}
+	m.Args = &args
+
+	cmd.Callable(m)
+
+	if len(fake.SentMessages) != 1 {
+		t.Fatalf("expected one banner image message with the menu as caption, got %d messages", len(fake.SentMessages))
+	}
+	image := fake.SentMessages[0].Message.GetImageMessage()
+	if image == nil {
+		t.Fatalf("expected message to be the category menu banner, got %+v", fake.SentMessages[0].Message)
+	}
+	if !strings.Contains(image.GetCaption(), "Comandos da categoria") ||
+		!strings.Contains(image.GetCaption(), "bannermenutestonly") {
+		t.Fatalf("expected banner caption to contain the category menu, got %q", image.GetCaption())
 	}
 }
 

@@ -90,7 +90,6 @@ func Upskill(m *messages.Message) {
 		}
 	}
 
-	m.Reply(reply, emojis.Success)
 	if options.Vocation != "" && manaEstimate.TotalMana > 0 {
 		card, err := generateRucoyUpskillCard(RucoyUpskillCardData{
 			FromSkill:     fromSkill,
@@ -102,14 +101,17 @@ func Upskill(m *messages.Message) {
 		})
 		if err != nil {
 			slog.Error("failed to generate Rucoy upskill card", "error", err)
-			m.Reply("Calculo enviado, mas nao consegui gerar a imagem do /upskill.", emojis.Fail)
+			m.Reply(reply+"\n\nNao consegui gerar a imagem do /upskill.", emojis.Fail)
 			return
 		}
-		if _, err := m.ReplyMedia(card, "", messages.ImageMessage); err != nil {
+		if _, err := m.ReplyMedia(card, reply, messages.ImageMessage, emojis.Success); err != nil {
 			slog.Error("failed to send Rucoy upskill card", "error", err)
-			m.Reply("Calculo enviado, mas nao consegui enviar a imagem do /upskill.", emojis.Fail)
+			m.Reply(reply+"\n\nNao consegui enviar a imagem do /upskill.", emojis.Fail)
 		}
+		return
 	}
+
+	m.Reply(reply, emojis.Success)
 }
 
 func formatUpskillTime(raw string) string {
