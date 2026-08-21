@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -14,10 +15,35 @@ import (
 
 type Callback func(message *m.Message)
 
+type Category struct {
+	Name       string
+	BannerPath *string
+}
+
+func (c *Category) LoadBanner() ([]byte, error) {
+	if c.BannerPath == nil {
+		return nil, fmt.Errorf("no banner path configured for category %s", c.Name)
+	}
+
+	data, err := os.ReadFile(*c.BannerPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read banner file: %w", err)
+	}
+
+	return data, nil
+}
+
+type CommandList []*Command
+
+var (
+	MiscCategory                = NewCategory("misc", nil)
+	loadedCommands *CommandList = &CommandList{}
+)
+
 type Command struct {
 	Name        string
 	Aliases     *[]string
-	Category    string
+	Category    *Category
 	Description string
 	Examples    *[]string
 	IsAdult     bool
@@ -26,10 +52,6 @@ type Command struct {
 	Callable    Callback
 	Guards      []func(message *m.Message) error
 }
-
-type CommandList []*Command
-
-var loadedCommands *CommandList = &CommandList{}
 
 func init() {
 	slog.Info("Resgistering meta-command help")
@@ -44,14 +66,18 @@ func init() {
 			text := formatCommandHelp(command, msg.Chat.Prefix, commandOrCategory)
 			msg.Reply(text)
 		} else {
-			menu := dynamicMenu(commandOrCategory, msg.Bot)
+			menu, banner := dynamicMenu(commandOrCategory, msg.Bot)
+			if banner != nil {
+				msg.ReplyMedia(banner, menu, m.ImageMessage)
+				return
+			}
 			msg.Reply(menu)
 		}
 	}
 
 	NewCommand("help",
 		"Mostra o menu de ajuda ou descrição de um comando",
-		"misc",
+		MiscCategory,
 		&[]string{"ajuda", "menu"},
 		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
 		false,
@@ -59,6 +85,10 @@ func init() {
 		false,
 		help,
 	)
+}
+
+func NewCategory(name string, banner *string) *Category {
+	return &Category{Name: name, BannerPath: banner}
 }
 
 func validateCommand(c *Command) error {
@@ -84,8 +114,8 @@ func validateCommand(c *Command) error {
 }
 
 func NewCommand(name,
-	desc,
-	category string,
+	desc string,
+	category *Category,
 	aliases,
 	examples *[]string,
 	isFun,
@@ -126,20 +156,32 @@ func GetLoadedCommands() *CommandList {
 	return loadedCommands
 }
 
-func GetCategories() *[]string {
-	categories := []string{}
+func GetCategories() []*Category {
+	var categories []*Category
+	seen := make(map[string]bool)
+
 	for _, command := range *loadedCommands {
-		if !slices.Contains(categories, command.Category) {
+		if !seen[command.Category.Name] {
 			categories = append(categories, command.Category)
+			seen[command.Category.Name] = true
 		}
 	}
-	return &categories
+	return categories
+}
+
+func FindCategory(name string) *Category {
+	for _, command := range *loadedCommands {
+		if strings.EqualFold(command.Category.Name, name) {
+			return command.Category
+		}
+	}
+	return nil
 }
 
 func GetCommandsFromCategory(category string) *CommandList {
 	var commands CommandList
 	for _, command := range *loadedCommands {
-		if command.Category == category {
+		if command.Category.Name == category {
 			commands = append(commands, command)
 		}
 	}
@@ -180,29 +222,44 @@ func formatCommandHelp(command *Command, prefix string, commandOrCategory string
 	return sb.String()
 }
 
-func dynamicMenu(category string, bot *bot.Bot) string {
-	if category == "" {
-		return fmt.Sprintf("< %s > \n\n Categorias de comandos disponíveis: \n\n- %s",
+func dynamicMenu(categoryName string, bot *bot.Bot) (string, []byte) {
+	if categoryName == "" {
+		categories := GetCategories()
+		categoryNames := []string{}
+		for _, cat := range categories {
+			categoryNames = append(categoryNames, cat.Name)
+		}
+
+		text := fmt.Sprintf("< %s > \n\n Categorias de comandos disponíveis: \n\n- %s",
 			*bot.Name,
-			strings.Join(*GetCategories(), "\n- "),
+			strings.Join(categoryNames, "\n- "),
 		)
+		return text, nil
 	}
 
-	commands := GetCommandsFromCategory(category)
-	if commands == nil {
-		return fmt.Sprintf("Categoria %s não encontrada!", category)
+	category := FindCategory(categoryName)
+	if category == nil {
+		return fmt.Sprintf("Categoria '%s' não encontrada!", categoryName), nil
 	}
 
+	commands := GetCommandsFromCategory(category.Name)
 	commandNames := []string{}
-
 	for _, command := range *commands {
 		commandNames = append(commandNames, command.Name)
 	}
 
-	return fmt.Sprintf("< %s > \n\n Comandos da categoria: \n\n- %s",
+	text := fmt.Sprintf("< %s > \n\n Comandos da categoria %s: \n\n- %s",
 		*bot.Name,
+		category.Name,
 		strings.Join(commandNames, "\n- "),
 	)
+
+	bannerData, err := category.LoadBanner()
+	if err != nil && category.BannerPath != nil {
+		slog.Warn("Failed to load category banner", "category", category.Name, "error", err)
+	}
+
+	return text, bannerData
 }
 
 func RunCommand(msg *m.Message) {

@@ -17,6 +17,7 @@ import (
 var (
 	testCmdOnce   sync.Once
 	testCmdCalled bool
+	testCategory  = NewCategory("test", nil)
 )
 
 const testCmdName = "commandtestonly"
@@ -26,7 +27,7 @@ func registerTestCommand() {
 		if _, err := NewCommand(
 			testCmdName,
 			"a command used only by command_test.go",
-			"testcategory",
+			testCategory,
 			&[]string{"commandtestalias"},
 			&[]string{"${prefix}${alias} example"},
 			true, false, false,
@@ -84,7 +85,7 @@ func TestNewCommandRejectsDuplicateName(t *testing.T) {
 			t.Error("expected NewCommand to panic on a duplicate name")
 		}
 	}()
-	NewCommand(testCmdName, "dup", "testcategory", nil, nil, false, false, false, func(m *messages.Message) {})
+	NewCommand(testCmdName, "dup", testCategory, nil, nil, false, false, false, func(m *messages.Message) {})
 }
 
 func TestNewCommandRejectsDuplicateCallback(t *testing.T) {
@@ -99,30 +100,31 @@ func TestNewCommandRejectsDuplicateCallback(t *testing.T) {
 			t.Error("expected NewCommand to panic when reusing an already-registered callback")
 		}
 	}()
-	NewCommand("a-different-name-entirely", "dup callback", "testcategory", nil, nil, false, false, false, existing.Callable)
+	NewCommand("a-different-name-entirely", "dup callback", testCategory, nil, nil, false, false, false, existing.Callable)
 }
 
 func TestGetCategoriesIncludesRegistered(t *testing.T) {
 	registerTestCommand()
-	categories := *GetCategories()
+	categories := GetCategories()
 
 	found := false
 	for _, c := range categories {
-		if c == "testcategory" {
+		if c.Name == "test" {
 			found = true
+			break
 		}
 	}
 	if !found {
-		t.Errorf("expected 'testcategory' among categories, got %v", categories)
+		t.Errorf("expected 'test' among categories, got %v", categories)
 	}
 }
 
 func TestGetCommandsFromCategory(t *testing.T) {
 	registerTestCommand()
-	cmds := *GetCommandsFromCategory("testcategory")
+	cmds := *GetCommandsFromCategory("test")
 
 	if len(cmds) != 1 || cmds[0].Name != testCmdName {
-		t.Errorf("expected only %q in testcategory, got %+v", testCmdName, cmds)
+		t.Errorf("expected only %q in test, got %+v", testCmdName, cmds)
 	}
 }
 
@@ -154,7 +156,7 @@ func TestFormatCommandHelp(t *testing.T) {
 
 func TestDynamicMenuNoCategory(t *testing.T) {
 	name := "Rainbot"
-	menu := dynamicMenu("", &bot.Bot{Name: &name})
+	menu, _ := dynamicMenu("", &bot.Bot{Name: &name})
 	if !strings.Contains(menu, "Rainbot") {
 		t.Errorf("expected the bot name in the menu, got %q", menu)
 	}
@@ -166,7 +168,7 @@ func TestDynamicMenuNoCategory(t *testing.T) {
 func TestDynamicMenuWithCategory(t *testing.T) {
 	registerTestCommand()
 	name := "Rainbot"
-	menu := dynamicMenu("testcategory", &bot.Bot{Name: &name})
+	menu, _ := dynamicMenu("test", &bot.Bot{Name: &name})
 	if !strings.Contains(menu, testCmdName) {
 		t.Errorf("expected the command name listed, got %q", menu)
 	}

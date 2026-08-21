@@ -9,12 +9,16 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 )
 
+var (
+	AdminCategory = commands.NewCategory("admin", nil)
+)
+
 func init() {
 
 	commands.NewCommand(
 		"setup",
 		"Configura o bot",
-		"admin",
+		AdminCategory,
 		&[]string{"config"},
 		&[]string{"${prefix}${alias}\nprefixo=!"},
 		false,
@@ -27,7 +31,7 @@ func init() {
 	commands.NewCommand(
 		"warn",
 		"Adiciona um warn nos usuários mencionados",
-		"admin",
+		AdminCategory,
 		&[]string{"avisar"},
 		&[]string{"${prefix}${alias} @user"},
 		false,
@@ -42,7 +46,7 @@ func init() {
 	commands.NewCommand(
 		"removewarn",
 		"Remove um aviso de um membro",
-		"admin",
+		AdminCategory,
 		&[]string{"rwarn"},
 		&[]string{"${prefix}${alias} @user"},
 		false,
@@ -56,7 +60,7 @@ func init() {
 	commands.NewCommand(
 		"ban",
 		"Bane os usuários mencionados do grupo",
-		"admin",
+		AdminCategory,
 		&[]string{"banir"},
 		&[]string{"${prefix}${alias} @user"},
 		false,
@@ -71,7 +75,7 @@ func init() {
 	commands.NewCommand(
 		"todos",
 		"Menciona os membros do grupo",
-		"admin",
+		AdminCategory,
 		&[]string{"all"},
 		&[]string{"${prefix}${alias} aoba"},
 		false,
@@ -84,7 +88,7 @@ func init() {
 	commands.NewCommand(
 		"promover",
 		"Da permissão de admin dos usuários mencionados",
-		"admin",
+		AdminCategory,
 		&[]string{"promote"},
 		&[]string{"${prefix}${alias} @user"},
 		false,
@@ -106,7 +110,7 @@ func init() {
 	commands.NewCommand(
 		"rebaixar",
 		"Remove o admin dos usuários mencionados",
-		"admin",
+		AdminCategory,
 		&[]string{"demote"},
 		&[]string{"${prefix}${alias} @user"},
 		false,
@@ -126,7 +130,7 @@ func init() {
 	)
 
 	commands.NewCommand("msg",
-		"Lista as mensagens enviadas por membros do grupo, ou membros sem mensagens", "admin",
+		"Lista as mensagens enviadas por membros do grupo, ou membros sem mensagens", AdminCategory,
 		&[]string{"lmsg", "mensagens"},
 		&[]string{
 			"${prefix}${alias} zero mostra membros com 0 mensgens",
@@ -155,7 +159,7 @@ func init() {
 		}, commands.IsGroup)
 
 	commands.NewCommand("mute",
-		"Silencia membros mencionados", "admin", nil, &[]string{"${prefix}${alias} @user"},
+		"Silencia membros mencionados", AdminCategory, nil, &[]string{"${prefix}${alias} @user"},
 		false, false, false, MuteMember,
 		commands.HasMentionedMembers,
 		commands.IsGroup,
@@ -163,14 +167,14 @@ func init() {
 		commands.IsBotAdmin,
 	)
 
-	commands.NewCommand("unmute", "Deixa os membros falarem novamente", "admin", &[]string{"um"}, &[]string{"${prefix}${alias} @user"},
+	commands.NewCommand("unmute", "Deixa os membros falarem novamente", AdminCategory, &[]string{"um"}, &[]string{"${prefix}${alias} @user"},
 		false, false, false,
 		UnmuteMember,
 		commands.HasMentionedMembers, commands.IsGroup, commands.IsAdmin)
 
-	commands.NewCommand("bug", "Reporta um bug", "misc", nil, nil, false, false, false, Bug, commands.HasArgs(1))
+	commands.NewCommand("bug", "Reporta um bug", commands.MiscCategory, nil, nil, false, false, false, Bug, commands.HasArgs(1))
 	commands.NewCommand("transmitir",
 		"Transmite uma mensagem",
-		"misc", &[]string{"bc", "broadcast"}, nil, false, false, false, Broadcast, commands.HasArgs(2))
+		commands.MiscCategory, &[]string{"bc", "broadcast"}, nil, false, false, false, Broadcast, commands.HasArgs(2))
 
 }

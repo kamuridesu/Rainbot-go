@@ -3,18 +3,21 @@ package fun
 import (
 	"strings"
 
-	"github.com/kamuridesu/rainbot-go/commands/rucoy"
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/core/modules/lyrics"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 )
 
+var (
+	DiversaoCategory = commands.NewCategory("diversão", nil)
+)
+
 func init() {
 	commands.NewCommand(
 		"slot",
 		"Teste sua sorte",
-		"diversão",
+		DiversaoCategory,
 		nil,
 		nil,
 		true,
@@ -26,7 +29,7 @@ func init() {
 	commands.NewCommand(
 		"filter",
 		"Adiciona filtros ou visualiza, um filtro é uma resposta automatica a uma mensagem.",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"filtro"},
 		&[]string{"${prefix}${alias} antedeguemon"},
 		true,
@@ -44,7 +47,7 @@ func init() {
 	commands.NewCommand(
 		"delfilter",
 		"Deleta um filter existente",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"rfilter", "rmfilter", "deletafilter"},
 		nil,
 		true,
@@ -57,7 +60,7 @@ func init() {
 	commands.NewCommand(
 		"sticker",
 		"Cria um sticker",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"fig", "s", "figu"},
 		nil,
 		true,
@@ -69,7 +72,7 @@ func init() {
 	commands.NewCommand(
 		"ssticker",
 		"Cria um sticker com o tamanho original",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"figs", "ss", "figus"},
 		nil,
 		true,
@@ -81,7 +84,7 @@ func init() {
 	commands.NewCommand(
 		"casal",
 		"Sorteia 2 membros e forma um casal",
-		"diversão",
+		DiversaoCategory,
 		nil, nil, true, false, false,
 		Casal,
 		commands.IsGroup,
@@ -90,7 +93,7 @@ func init() {
 	commands.NewCommand(
 		"copy",
 		"Copia uma mensagem em visualização única e envia no privado",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"c", "copiar", "revelar", "reveal"},
 		nil,
 		true, false, false,
@@ -100,24 +103,24 @@ func init() {
 
 	commands.NewCommand("chance",
 		"Calcula a chance de algo",
-		"diversão",
+		DiversaoCategory,
 		nil,
 		&[]string{"${prefix}chance de eu ficar rico"},
 		true, false, false, ChanceDe, commands.HasArgs(1))
 
 	commands.NewCommand("percent",
 		"Calcula o quanto % você é",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"perc"},
 		&[]string{"${prefix}${alias} pobre"},
 		true, false, false, Percent, commands.HasArgs(1))
 
-	commands.NewCommand("gado", "Diz o seu nivel de gado", "diversão", nil, nil, true, false, false, Gado)
-	commands.NewCommand("gay", "Diz o seu nivel de gay", "diversão", nil, nil, true, false, false, Gay)
+	commands.NewCommand("gado", "Diz o seu nivel de gado", DiversaoCategory, nil, nil, true, false, false, Gado)
+	commands.NewCommand("gay", "Diz o seu nivel de gay", DiversaoCategory, nil, nil, true, false, false, Gay)
 
 	commands.NewCommand("lyrics",
 		"Envia a letra de alguma música",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"letras"},
 		&[]string{"${prefix}${alias} never gonna give you up"},
 		true, false, false,
@@ -132,81 +135,12 @@ func init() {
 		},
 	)
 
-	commands.NewCommand("video", "Baixa um video", "diversão", nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
-	commands.NewCommand("music", "Baixa uma musica", "diversão", nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
-	commands.NewCommand("online",
-		"Mostra os membros online de uma guilda no Rucoy online",
-		"rucoy",
-		&[]string{"ronline"},
-		nil,
-		true, true, false,
-		rucoy.RucoyOnlineGuild,
-		commands.HasArgs(1),
-	)
-
-	commands.NewCommand("upskill",
-		"Calcula quanto tempo demora para ir de uma skill ate outra no Rucoy Online",
-		"rucoy",
-		nil,
-		&[]string{"${prefix}${alias} 400 450 5000", "${prefix}${alias} 400 450 5000 kina 8"},
-		true, true, false,
-		rucoy.Upskill,
-		commands.HasArgs(3),
-	)
-
-	commands.NewCommand("uplevel",
-		"Calcula quanto tempo demora para ir de um level ate outro no Rucoy Online",
-		"rucoy",
-		nil,
-		&[]string{"${prefix}${alias} 350 400 20kk"},
-		true, true, false,
-		rucoy.Uplevel,
-		commands.HasArgs(3),
-	)
-
-	commands.NewCommand("train",
-		"Calcula o melhor monstro para AFK train e powertrain no Rucoy Online",
-		"rucoy",
-		nil,
-		&[]string{"${prefix}${alias} 5 351 391 -50"},
-		true, true, false,
-		rucoy.RucoyTrain,
-		commands.HasArgs(4),
-	)
-
-	commands.NewCommand("afk",
-		"Mostra jogadores de uma guilda do Rucoy com 7 dias ou mais sem logar",
-		"rucoy",
-		nil,
-		&[]string{"${prefix}${alias} B L A C K O U T"},
-		true, true, false,
-		rucoy.RucoyAFKGuild,
-		commands.HasArgs(1),
-	)
-
-	commands.NewCommand("info",
-		"Mostra informacoes de um jogador do Rucoy Online",
-		"rucoy",
-		nil,
-		&[]string{"${prefix}${alias} Nome do Jogador"},
-		true, true, false,
-		rucoy.RucoyInfo,
-		commands.HasArgs(1),
-	)
-
-	commands.NewCommand("meta",
-		"Mostra membros de uma guilda do Rucoy que ainda nao bateram uma meta de level",
-		"rucoy",
-		nil,
-		&[]string{"${prefix}${alias} 400 B L A C K O U T"},
-		true, true, false,
-		rucoy.RucoyMetaGuild,
-		commands.HasArgs(2),
-	)
+	commands.NewCommand("video", "Baixa um video", DiversaoCategory, nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
+	commands.NewCommand("music", "Baixa uma musica", DiversaoCategory, nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
 
 	commands.NewCommand("quotly",
 		"gera um quote",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"q"},
 		nil,
 		true, false, false,
@@ -216,7 +150,7 @@ func init() {
 
 	commands.NewCommand("randomquotly",
 		"envia um quote aleatorio",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"qrand"},
 		nil,
 		true, false, false,
@@ -225,7 +159,7 @@ func init() {
 
 	commands.NewCommand("qdelete",
 		"Deleta um quote existente, respondendo a mensagem do quote",
-		"diversão",
+		DiversaoCategory,
 		&[]string{"qdel", "qd"},
 		nil,
 		true, false, false,
