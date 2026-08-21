@@ -71,7 +71,7 @@ func HandleQuoteCommand(m *messages.Message) {
 	resolveAuthor := func(msg *models.Message) (string, []byte) {
 		pp, err := utils.DownloadIUserProfilePic(m.Ctx, msg.SenderJID, m.Bot)
 		if err != nil || pp == nil {
-			pp, _ = os.ReadFile("resources/images/default.png")
+			pp, _ = os.ReadFile("assets/default/default.png")
 		}
 
 		qJid, _ := types.ParseJID(msg.SenderJID)
