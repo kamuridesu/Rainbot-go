@@ -23,6 +23,7 @@ RUN apk add --no-cache ca-certificates tzdata libwebp-tools ffmpeg \
     && cp /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 WORKDIR /app
+COPY ./assets /app/assets
 COPY ./migrations /app/migrations
 COPY --from=build /workspace/default-app /usr/local/bin/default-app
 

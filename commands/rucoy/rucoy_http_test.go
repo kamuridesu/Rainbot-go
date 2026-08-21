@@ -1,4 +1,4 @@
-package fun
+package rucoy
 
 import (
 	"net/http"

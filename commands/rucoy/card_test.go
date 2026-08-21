@@ -1,8 +1,10 @@
-package fun
+package rucoy
 
 import (
 	"bytes"
 	"image/jpeg"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -141,5 +143,29 @@ func TestFitPixelTextScaleUsesVisualWidth(t *testing.T) {
 	}
 	if got := pixelTextVisualWidth(text, scale); got > maxWidth {
 		t.Fatalf("fitted visual width = %d, want <= %d", got, maxWidth)
+	}
+}
+
+func TestLoadRucoyUpskillCardTemplateReportsMissingAssetPath(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	_, err := loadRucoyUpskillCardTemplate(RucoyUpskillOptions{Vocation: "Mage"})
+	if err == nil {
+		t.Fatal("expected an error for a missing template")
+	}
+	if !strings.Contains(err.Error(), "upskill-card-template-mage-fire.png") ||
+		!strings.Contains(err.Error(), "assets") {
+		t.Fatalf("expected the error to mention the missing template and asset paths, got %v", err)
+	}
+}
+
+func TestDockerfileCopiesAssetsIntoRuntimeImage(t *testing.T) {
+	dockerfile, err := os.ReadFile(filepath.Join(repoRoot(t), "Dockerfile"))
+	if err != nil {
+		t.Fatalf("ReadFile(Dockerfile) error = %v", err)
+	}
+
+	if !strings.Contains(string(dockerfile), "COPY ./assets /app/assets") {
+		t.Fatalf("Dockerfile must copy Rucoy card assets into the runtime image")
 	}
 }
