@@ -74,7 +74,7 @@ func Uplevel(m *messages.Message) {
 
 	estimatedTime := formatRucoyDuration(xpNeeded, xpPerHour)
 	reply := fmt.Sprintf(
-		"Uplevel Rucoy\n\nLevel: %d -> %d\nXP/h: %s\nXP faltando: %s\nTempo estimado: %s",
+		"Level: %d -> %d\nXP/h: %s\nXP faltando: %s\nTempo estimado: %s",
 		fromLevel,
 		toLevel,
 		formatRucoyNumber(xpPerHour),

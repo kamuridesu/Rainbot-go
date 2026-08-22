@@ -56,16 +56,14 @@ func RucoyTrain(m *messages.Message) {
 	powerResult := calculateRucoyTraining(baseLevel, statLevel, extraStats, attack, true, targetEfficiency)
 
 	sb := strings.Builder{}
-	fmt.Fprintf(&sb, "Calculadora Train Rucoy\n\n")
-	fmt.Fprintf(&sb, "Setup: arma %d | level %d | skill %d | add %+d\n", attack, baseLevel, statLevel, extraStats)
-	fmt.Fprintf(&sb, "Skill efetiva: %d\n", statLevel+extraStats)
-	fmt.Fprintf(&sb, "Eficiencia alvo: %.0f%%+\n\n", targetEfficiency)
-	writeRucoyTrainingResult(&sb, afkResult, targetEfficiency)
+	fmt.Fprintf(&sb, "Arma %d | Lvl %d | Skill %d | Add %+d\n", attack, baseLevel, statLevel, extraStats)
+	fmt.Fprintf(&sb, "Efetiva %d | Alvo %.0f%%+\n\n", statLevel+extraStats, targetEfficiency)
+	writeRucoyTrainingResult(&sb, afkResult)
 	if afkResult.Monster == "" {
 		writeRucoyTrainingWeaponAlternatives(&sb, attack, baseLevel, statLevel, extraStats, targetEfficiency, false)
 	}
 	sb.WriteString("\n")
-	writeRucoyTrainingResult(&sb, powerResult, targetEfficiency)
+	writeRucoyTrainingResult(&sb, powerResult)
 	if powerResult.Monster == "" {
 		writeRucoyTrainingWeaponAlternatives(&sb, attack, baseLevel, statLevel, extraStats, targetEfficiency, true)
 	}
@@ -181,72 +179,67 @@ func rucoyTrainingDuration(monster RucoyTrainingMonster, minDamage float64, maxD
 	return monster.HP / damagePerSecond
 }
 
-func writeRucoyTrainingResult(sb *strings.Builder, result RucoyTrainingResult, targetEfficiency float64) {
-	fmt.Fprintf(sb, "%s:\n", result.Mode)
+func writeRucoyTrainingResult(sb *strings.Builder, result RucoyTrainingResult) {
+	mode := formatRucoyTrainingMode(result.Mode)
+	fmt.Fprintf(sb, "%s\n", mode)
 	if result.Monster == "" {
-		fmt.Fprintf(sb, "Nenhum monstro viavel com %s+ e %.0f%%+ de eficiencia.\n", formatRucoyTrainingDuration(result.MinimumDuration), targetEfficiency)
+		sb.WriteString("Sem opção viável.\n")
 		if result.BestShortMonster != "" {
-			fmt.Fprintf(sb, "Melhor acima da eficiencia, mas ruim: %s\n", result.BestShortMonster)
-			fmt.Fprintf(sb, "Ele morreria em media em %s.\n", formatRucoyTrainingDuration(result.BestShortDuration))
+			fmt.Fprintf(sb, "Melhor: %s | %s\n", result.BestShortMonster, formatRucoyTrainingDuration(result.BestShortDuration))
+			fmt.Fprintf(sb, "Muito curto para %s.\n", mode)
 		}
-		writeRucoyTrainingNextStep(sb, result, targetEfficiency)
+		writeRucoyTrainingNextStep(sb, result)
 		return
 	}
 
-	fmt.Fprintf(sb, "Melhor local: %s\n", result.Monster)
-	fmt.Fprintf(sb, "Eficiencia estimada: %.1f%%\n", result.Efficiency)
-	fmt.Fprintf(sb, "Tempo medio ate matar o mob: %s\n", formatRucoyTrainingDuration(result.DurationSeconds))
+	fmt.Fprintf(sb, "Melhor: %s\n", result.Monster)
+	fmt.Fprintf(sb, "%s | %.1f%%\n", formatRucoyTrainingDuration(result.DurationSeconds), result.Efficiency)
 	if result.DurationSeconds > 450 {
-		sb.WriteString("Obs: o mob pode exaurir antes, por volta de 07:30.\n")
+		sb.WriteString("Pode exaurir por volta de 07:30.\n")
 	}
-	fmt.Fprintf(sb, "Dano max: %d | crit max: %d\n", result.MaxDamage, result.MaxCriticalDamage)
+	fmt.Fprintf(sb, "Dano max: %d | crit: %d\n", result.MaxDamage, result.MaxCriticalDamage)
 
-	writeRucoyTrainingNextStep(sb, result, targetEfficiency)
+	writeRucoyTrainingNextStep(sb, result)
 }
 
-func writeRucoyTrainingNextStep(sb *strings.Builder, result RucoyTrainingResult, targetEfficiency float64) {
+func writeRucoyTrainingNextStep(sb *strings.Builder, result RucoyTrainingResult) {
 	if result.NextMonster == "" {
-		sb.WriteString("Proximo mob: nenhum acima na tabela atual.\n")
+		sb.WriteString("Próximo: nenhum na tabela.\n")
 		return
 	}
 
-	fmt.Fprintf(sb, "Proximo mob: %s\n", result.NextMonster)
 	if result.RequiredStats > 0 {
-		fmt.Fprintf(sb, "Para avancar: falta +%d skill/add para %.0f%%+ de eficiencia.\n", result.RequiredStats, targetEfficiency)
+		fmt.Fprintf(sb, "Próximo: %s | falta +%d\n", result.NextMonster, result.RequiredStats)
 		return
 	}
 	if result.StatsNeededFor1Damage > 0 {
-		fmt.Fprintf(sb, "Para avancar: falta +%d skill/add para dar 1 dano max.\n", result.StatsNeededFor1Damage)
+		fmt.Fprintf(sb, "Próximo: %s | falta +%d para 1 dano\n", result.NextMonster, result.StatsNeededFor1Damage)
 		return
 	}
 
-	sb.WriteString("Para avancar: voce ja esta perto; teste uma eficiencia alvo menor se quiser forcar esse mob.\n")
+	fmt.Fprintf(sb, "Próximo: %s | teste alvo menor\n", result.NextMonster)
 }
 
 func writeRucoyTrainingWeaponAlternatives(sb *strings.Builder, currentAttack int, baseLevel int, statLevel int, extraStats int, targetEfficiency float64, powertrain bool) {
 	alternatives := rucoyTrainingWeaponAlternatives(currentAttack, baseLevel, statLevel, extraStats, targetEfficiency, powertrain)
 	mode := "AFK Train"
 	if powertrain {
-		mode = "Powertrain"
+		mode = "Power Train"
 	}
 	if len(alternatives) == 0 {
-		fmt.Fprintf(sb, "Sugestoes: nem mudando so a arma de treino achei um %s 08:00+ nessa tabela.\n", mode)
+		fmt.Fprintf(sb, "\nSugestão: nenhuma arma viável para %s.\n", mode)
 		return
 	}
 
-	sb.WriteString("Sugestoes com arma de treino:\n")
-	limit := min(len(alternatives), 5)
-	for i := range limit {
-		alternative := alternatives[i]
-		fmt.Fprintf(
-			sb,
-			"- arma %d: %s por %s (%.1f%%)\n",
-			alternative.Attack,
-			alternative.Monster,
-			formatRucoyTrainingDuration(alternative.DurationSeconds),
-			alternative.Efficiency,
-		)
-	}
+	alternative := alternatives[0]
+	fmt.Fprintf(sb, "\nSugestão: arma %d\n", alternative.Attack)
+	fmt.Fprintf(
+		sb,
+		"%s | %s | %.1f%%\n",
+		alternative.Monster,
+		formatRucoyTrainingDuration(alternative.DurationSeconds),
+		alternative.Efficiency,
+	)
 }
 
 func rucoyTrainingWeaponAlternatives(currentAttack int, baseLevel int, statLevel int, extraStats int, targetEfficiency float64, powertrain bool) []RucoyTrainingAlternative {
@@ -282,6 +275,13 @@ func formatRucoyTrainingDuration(seconds float64) string {
 	remainingSeconds := totalSeconds % 60
 
 	return fmt.Sprintf("%02d:%02d", minutes, remainingSeconds)
+}
+
+func formatRucoyTrainingMode(mode string) string {
+	if mode == "Powertrain" {
+		return "Power Train"
+	}
+	return mode
 }
 
 func rucoyTrainingWeaponAttacks() []int {
