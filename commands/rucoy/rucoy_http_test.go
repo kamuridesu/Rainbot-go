@@ -476,7 +476,10 @@ func TestUplevelSuccess(t *testing.T) {
 	Uplevel(m)
 
 	text := lastReplyText(fake)
-	if !strings.Contains(text, "Uplevel Rucoy") {
+	if strings.Contains(text, "Uplevel Rucoy") ||
+		!strings.HasPrefix(text, "Level: 350 -> 400") ||
+		!strings.Contains(text, "XP/h: 20.000.000") ||
+		!strings.Contains(text, "Tempo estimado: 3 minutos") {
 		t.Errorf("expected a formatted uplevel reply, got %q", text)
 	}
 }
@@ -493,7 +496,8 @@ func TestUplevelWithDailyHours(t *testing.T) {
 	Uplevel(m)
 
 	text := lastReplyText(fake)
-	if !strings.Contains(text, "Tempo estimado: 26 horas e 30 minutos") ||
+	if strings.Contains(text, "Uplevel Rucoy") ||
+		!strings.Contains(text, "Tempo estimado: 26 horas e 30 minutos") ||
 		!strings.Contains(text, "Treinando 8h por dia: 3 dias, 2 horas e 30 minutos") {
 		t.Errorf("expected daily training estimate in uplevel reply, got %q", text)
 	}
