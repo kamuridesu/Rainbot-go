@@ -1,4 +1,4 @@
-name: push changes
+name: build & deploy
 
 on:
   workflow_dispatch:
@@ -20,29 +20,9 @@ permissions:
   packages: write
 
 jobs:
-  test:
-    name: Run tests
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - name: Install required tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg webp
-
-      - name: Run tests
-        run: go test ./...
-
   build-archs:
     name: Build & Push (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -90,13 +70,13 @@ jobs:
 
           for TAG in "${TAGS[@]}"; do
             if [ -z "$TAG" ]; then continue; fi
-            
+
             echo "Creating manifest for $IMAGE:$TAG"
             buildah manifest create $IMAGE:$TAG
-            
+
             buildah manifest add $IMAGE:$TAG docker://$IMAGE:${{ github.sha }}-amd64
             buildah manifest add $IMAGE:$TAG docker://$IMAGE:${{ github.sha }}-arm64
-            
+
             buildah manifest push --all $IMAGE:$TAG docker://$IMAGE:$TAG
           done
 

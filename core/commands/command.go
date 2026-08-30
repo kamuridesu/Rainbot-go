@@ -230,7 +230,7 @@ func dynamicMenu(categoryName string, bot *bot.Bot) (string, []byte) {
 			categoryNames = append(categoryNames, cat.Name)
 		}
 
-		text := fmt.Sprintf("< %s > \n\n Categorias de comandos disponíveis: \n\n- %s",
+		text := fmt.Sprintf("< %s > \n\n Categorias de comandos disponíveis: \n\n- %s\n\nUse /ajuda categoria para o menu da categoria",
 			*bot.Name,
 			strings.Join(categoryNames, "\n- "),
 		)
@@ -248,7 +248,7 @@ func dynamicMenu(categoryName string, bot *bot.Bot) (string, []byte) {
 		commandNames = append(commandNames, command.Name)
 	}
 
-	text := fmt.Sprintf("< %s > \n\n Comandos da categoria %s: \n\n- %s",
+	text := fmt.Sprintf("< %s > \n\n Comandos da categoria %s: \n\n- %s\n\nUse /ajuda categoria para o menu da categoria",
 		*bot.Name,
 		category.Name,
 		strings.Join(commandNames, "\n- "),

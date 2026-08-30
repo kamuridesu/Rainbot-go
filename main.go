@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -52,10 +53,7 @@ func main() {
 	slog.Info(fmt.Sprintf("Found %d commands", len(*commands.GetLoadedCommands())))
 
 	handler := messages.NewHandler(ctx, commands.RunCommand, chat.ChatHandler)
-	botName := os.Getenv("BOT_NAME")
-	if botName == "" {
-		botName = "teto"
-	}
+	botName := cmp.Or(os.Getenv("BOT_NAME"), "teto")
 
 	bot, err := b.New(ctx, botName, os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"), handler, singleton)
 	if err != nil {
