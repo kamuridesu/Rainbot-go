@@ -28,15 +28,15 @@ func init() {
 		commands.HasArgs(3),
 	)
 
-	commands.NewCommand("uplevel",
-		"Calcula quanto tempo falta para subir de um level atual ate um level desejado usando sua media de XP por hora.\n\nVoce pode informar quantas horas joga por dia para o bot converter o tempo total em dias de treino.\n\nUso:\n/uplevel level_atual level_desejado xp_por_hora [horas_por_dia]",
-		RucoyCategory,
-		nil,
-		&[]string{"${prefix}${alias} 350 400 20kk", "${prefix}${alias} 350 400 20kk 8", "${prefix}${alias} 275 300 5kk"},
-		true, true, false,
-		Uplevel,
-		commands.HasArgs(3),
-	)
+	// commands.NewCommand("uplevel",
+	//	"Calcula quanto tempo falta para subir de um level atual ate um level desejado usando sua media de XP por hora.\n\nVoce pode informar quantas horas joga por dia para o bot converter o tempo total em dias de treino.\n\nUso:\n/uplevel level_atual level_desejado xp_por_hora [horas_por_dia]",
+	//	RucoyCategory,
+	//	nil,
+	//	&[]string{"${prefix}${alias} 350 400 20kk", "${prefix}${alias} 350 400 20kk 8", "${prefix}${alias} 275 300 5kk"},
+	//	true, true, false,
+	//	Uplevel,
+	//	commands.HasArgs(3),
+	//)
 
 	commands.NewCommand("train",
 		"Calcula o melhor monstro para AFK Train e Power Train baseado na arma, level, skill e add informado.\n\nO add pode ser negativo, por exemplo -50, para simular item que reduz skill.\n\nVoce tambem pode informar a eficiencia minima desejada.\n\nUso:\n/train arma level skill add [eficiencia]\n\nArmas de treino comuns:\n4, 5, 7, 9, 11 e 13",
