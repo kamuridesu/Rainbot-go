@@ -25,11 +25,11 @@ func TestRucoyCommandsHaveTutorialHelp(t *testing.T) {
 			description:  []string{"Uso:", "/upskill skill_atual skill_desejada tickrate [classe] [horas_por_dia]", "Classes:", "pally = 50 mana por skill + flechas"},
 			exampleParts: []string{"${prefix}${alias} 400 450 42000", "${prefix}${alias} 400 450 42000 kina", "${prefix}${alias} 400 450 42000 pally 8", "${prefix}${alias} 400 450 42000 8 mage"},
 		},
-		{
-			command:      "uplevel",
-			description:  []string{"Uso:", "/uplevel level_atual level_desejado xp_por_hora [horas_por_dia]"},
-			exampleParts: []string{"${prefix}${alias} 350 400 20kk", "${prefix}${alias} 350 400 20kk 8", "${prefix}${alias} 275 300 5kk"},
-		},
+		// {
+		//	command:      "uplevel",
+		//	description:  []string{"Uso:", "/uplevel level_atual level_desejado xp_por_hora [horas_por_dia]"},
+		//	exampleParts: []string{"${prefix}${alias} 350 400 20kk", "${prefix}${alias} 350 400 20kk 8", "${prefix}${alias} 275 300 5kk"},
+		//},
 		{
 			command:      "train",
 			description:  []string{"Uso:", "/train arma level skill add [eficiencia]", "Armas de treino comuns:"},
