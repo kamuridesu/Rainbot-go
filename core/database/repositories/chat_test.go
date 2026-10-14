@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/repositories"
@@ -135,5 +136,136 @@ func TestChatRepositoryDelete(t *testing.T) {
 	}
 	if got != nil {
 		t.Errorf("expected chat to be gone after Delete(), got %+v", got)
+	}
+}
+
+func TestChatRepositoryMarkLeftKeepsFirstTimestamp(t *testing.T) {
+	repo := repositories.NewChatRepository(newTestDB(t))
+	if err := repo.Create("chat1@g.us"); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	first := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	if err := repo.MarkLeft("chat1@g.us", first); err != nil {
+		t.Fatalf("MarkLeft() error = %v", err)
+	}
+	if err := repo.MarkLeft("chat1@g.us", first.Add(48*time.Hour)); err != nil {
+		t.Fatalf("second MarkLeft() error = %v", err)
+	}
+
+	chat, err := repo.FindById("chat1@g.us")
+	if err != nil {
+		t.Fatalf("FindById() error = %v", err)
+	}
+	if chat.LeftAt == nil || !chat.LeftAt.Equal(first) {
+		t.Errorf("LeftAt = %v, want %v", chat.LeftAt, first)
+	}
+
+	if err := repo.ClearLeft("chat1@g.us"); err != nil {
+		t.Fatalf("ClearLeft() error = %v", err)
+	}
+	chat, _ = repo.FindById("chat1@g.us")
+	if chat.LeftAt != nil {
+		t.Errorf("LeftAt after ClearLeft = %v, want nil", chat.LeftAt)
+	}
+}
+
+func TestChatRepositoryFindLeftBefore(t *testing.T) {
+	repo := repositories.NewChatRepository(newTestDB(t))
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+
+	for _, id := range []string{"old@g.us", "recent@g.us", "active@g.us"} {
+		if err := repo.Create(id); err != nil {
+			t.Fatalf("Create(%s) error = %v", id, err)
+		}
+	}
+	repo.MarkLeft("old@g.us", now.Add(-8*24*time.Hour))
+	repo.MarkLeft("recent@g.us", now.Add(-2*24*time.Hour))
+
+	got, err := repo.FindLeftBefore(now.Add(-7 * 24 * time.Hour))
+	if err != nil {
+		t.Fatalf("FindLeftBefore() error = %v", err)
+	}
+	if len(got) != 1 || got[0] != "old@g.us" {
+		t.Errorf("FindLeftBefore() = %v, want [old@g.us]", got)
+	}
+}
+
+func TestChatRepositoryPurgeDeletesAllChatData(t *testing.T) {
+	db := newTestDB(t)
+	chatRepo := repositories.NewChatRepository(db)
+	memberRepo := repositories.NewMemberRepository(db)
+	filterRepo := repositories.NewFilterRepository(db)
+	quotlyRepo := repositories.NewQuotlyRepository(db)
+	messageRepo := repositories.NewMessageRepository(db)
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+
+	for _, id := range []string{"gone@g.us", "kept@g.us"} {
+		if err := chatRepo.Create(id); err != nil {
+			t.Fatalf("Create(%s) error = %v", id, err)
+		}
+		if err := memberRepo.Create(id, "123@lid"); err != nil {
+			t.Fatalf("Create(member) error = %v", err)
+		}
+		if err := filterRepo.Create(&models.Filter{ChatID: id, Pattern: "hi", Kind: "image", Response: id + ".jpg"}); err != nil {
+			t.Fatalf("Create(filter) error = %v", err)
+		}
+		if err := quotlyRepo.Create(&models.QuotlyFile{ChatID: id, FileId: id + ".png"}); err != nil {
+			t.Fatalf("Create(quotly) error = %v", err)
+		}
+		if err := quotlyRepo.CreateSentMessage(&models.QuotlyMessage{StanzaID: id + "-q", ChatID: id, FileId: id + ".png", CreatedAt: now}); err != nil {
+			t.Fatalf("CreateSentMessage() error = %v", err)
+		}
+		if err := messageRepo.Create(&models.Message{StanzaID: id + "-m", ChatID: id, SenderJID: "123@lid", MessageText: "hello", CreatedAt: now}); err != nil {
+			t.Fatalf("Create(message) error = %v", err)
+		}
+	}
+	chatRepo.MarkLeft("gone@g.us", now.Add(-8*24*time.Hour))
+	cutoff := now.Add(-7 * 24 * time.Hour)
+
+	purged, err := chatRepo.Purge("gone@g.us", cutoff)
+	if err != nil {
+		t.Fatalf("Purge() error = %v", err)
+	}
+	if !purged {
+		t.Fatal("Purge() = false, want true")
+	}
+
+	for _, table := range []string{"chat", "member", "filter", "quotly", "quotly_message", "messages"} {
+		var gone, kept int
+		db.DB.QueryRow("SELECT COUNT(*) FROM "+table+" WHERE chatId = ?", "gone@g.us").Scan(&gone)
+		db.DB.QueryRow("SELECT COUNT(*) FROM "+table+" WHERE chatId = ?", "kept@g.us").Scan(&kept)
+		if gone != 0 {
+			t.Errorf("%s still has %d rows for purged chat", table, gone)
+		}
+		if kept != 1 {
+			t.Errorf("%s has %d rows for untouched chat, want 1", table, kept)
+		}
+	}
+}
+
+func TestChatRepositoryPurgeSkipsChatsNotPastCutoff(t *testing.T) {
+	repo := repositories.NewChatRepository(newTestDB(t))
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+	cutoff := now.Add(-7 * 24 * time.Hour)
+
+	repo.Create("active@g.us")
+	repo.Create("recent@g.us")
+	repo.MarkLeft("recent@g.us", now.Add(-24*time.Hour))
+
+	for _, id := range []string{"active@g.us", "recent@g.us", "missing@g.us"} {
+		purged, err := repo.Purge(id, cutoff)
+		if err != nil {
+			t.Fatalf("Purge(%s) error = %v", id, err)
+		}
+		if purged {
+			t.Errorf("Purge(%s) = true, want false", id)
+		}
+	}
+	if chat, _ := repo.FindById("active@g.us"); chat == nil {
+		t.Error("active chat was deleted")
+	}
+	if chat, _ := repo.FindById("recent@g.us"); chat == nil {
+		t.Error("recently left chat was deleted")
 	}
 }

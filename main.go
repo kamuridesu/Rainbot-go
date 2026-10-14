@@ -16,7 +16,9 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/database"
 	"github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/core/modules/cleanup"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
+	"github.com/kamuridesu/rainbot-go/internal/storage"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 
 	_ "github.com/kamuridesu/rainbot-go/commands/admin"
@@ -66,6 +68,8 @@ func main() {
 	}()
 
 	filter.StartCacheEviction(10*time.Minute, 30*time.Minute)
+
+	cleanup.New(singleton.Chat, singleton.Member, singleton.Filter, singleton.Quotly, storage.NewStorage()).Start(ctx, time.Hour)
 
 	// Listen to Ctrl+C (you can also do something else that prevents the program from exiting)
 	c := make(chan os.Signal, 1)

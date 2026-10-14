@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/repositories"
@@ -139,5 +140,68 @@ func TestMemberRepositoryGetAllByChatExcludesOldFormatJIDs(t *testing.T) {
 	}
 	if !seen["111@lid"] || !seen["222@lid"] {
 		t.Errorf("expected 111@lid and 222@lid in results, got %+v", members)
+	}
+}
+
+func TestMemberRepositoryMarkAndClearLeft(t *testing.T) {
+	db := newTestDB(t)
+	repositories.NewChatRepository(db).Create("chat1@g.us")
+	repo := repositories.NewMemberRepository(db)
+	if err := repo.Create("chat1@g.us", "123@lid"); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	first := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	if err := repo.MarkLeft("chat1@g.us", "123@lid", first); err != nil {
+		t.Fatalf("MarkLeft() error = %v", err)
+	}
+	repo.MarkLeft("chat1@g.us", "123@lid", first.Add(time.Hour))
+
+	member, err := repo.FindByChatAndId("chat1@g.us", "123@lid")
+	if err != nil {
+		t.Fatalf("FindByChatAndId() error = %v", err)
+	}
+	if member.LeftAt == nil || !member.LeftAt.Equal(first) {
+		t.Errorf("LeftAt = %v, want %v", member.LeftAt, first)
+	}
+
+	if err := repo.ClearLeft("chat1@g.us", "123@lid"); err != nil {
+		t.Fatalf("ClearLeft() error = %v", err)
+	}
+	member, _ = repo.FindByChatAndId("chat1@g.us", "123@lid")
+	if member.LeftAt != nil {
+		t.Errorf("LeftAt after ClearLeft = %v, want nil", member.LeftAt)
+	}
+}
+
+func TestMemberRepositoryDeleteLeftBefore(t *testing.T) {
+	db := newTestDB(t)
+	repositories.NewChatRepository(db).Create("chat1@g.us")
+	repositories.NewChatRepository(db).Create("chat2@g.us")
+	repo := repositories.NewMemberRepository(db)
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+
+	repo.Create("chat1@g.us", "old@lid")
+	repo.Create("chat1@g.us", "recent@lid")
+	repo.Create("chat1@g.us", "active@lid")
+	repo.Create("chat2@g.us", "old@lid")
+	repo.MarkLeft("chat1@g.us", "old@lid", now.Add(-8*24*time.Hour))
+	repo.MarkLeft("chat1@g.us", "recent@lid", now.Add(-24*time.Hour))
+
+	removed, err := repo.DeleteLeftBefore(now.Add(-7 * 24 * time.Hour))
+	if err != nil {
+		t.Fatalf("DeleteLeftBefore() error = %v", err)
+	}
+	if removed != 1 {
+		t.Errorf("DeleteLeftBefore() = %d, want 1", removed)
+	}
+
+	if m, _ := repo.FindByChatAndId("chat1@g.us", "old@lid"); m != nil {
+		t.Error("member who left over a week ago should be deleted")
+	}
+	for _, key := range [][2]string{{"chat1@g.us", "recent@lid"}, {"chat1@g.us", "active@lid"}, {"chat2@g.us", "old@lid"}} {
+		if m, _ := repo.FindByChatAndId(key[0], key[1]); m == nil {
+			t.Errorf("member %s in %s should be kept", key[1], key[0])
+		}
 	}
 }

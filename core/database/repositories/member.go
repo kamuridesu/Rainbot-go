@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/providers"
@@ -14,6 +15,9 @@ type MemberRepository interface {
 	FindByChatAndId(chatJid, memberJid string) (*models.Member, error)
 	Create(chatJid, memberJid string) error
 	Update(member *models.Member) error
+	MarkLeft(chatJid, memberJid string, at time.Time) error
+	ClearLeft(chatJid, memberJid string) error
+	DeleteLeftBefore(cutoff time.Time) (int64, error)
 	Close() error
 }
 
@@ -31,11 +35,12 @@ func (r *memberRepository) Close() error {
 
 func (r *memberRepository) FindByChatAndId(chatJid, memberJid string) (*models.Member, error) {
 	row := r.db.DB.QueryRow(r.db.GetQuery(
-		"SELECT chatId, jid, messages, points, warns, silenced FROM member WHERE chatId = ? AND jid = ?",
+		"SELECT chatId, jid, messages, points, warns, silenced, leftAt FROM member WHERE chatId = ? AND jid = ?",
 	), chatJid, memberJid)
 
 	var member models.Member
-	err := row.Scan(&member.ChatID, &member.JID, &member.Messages, &member.Points, &member.Warns, &member.Silenced)
+	var leftAt sql.NullTime
+	err := row.Scan(&member.ChatID, &member.JID, &member.Messages, &member.Points, &member.Warns, &member.Silenced, &leftAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -45,6 +50,9 @@ func (r *memberRepository) FindByChatAndId(chatJid, memberJid string) (*models.M
 	}
 	if strings.HasSuffix(member.JID, "s.whatsapp.net") {
 		return nil, fmt.Errorf("Member has old ID: %s", member.JID)
+	}
+	if leftAt.Valid {
+		member.LeftAt = &leftAt.Time
 	}
 	return &member, nil
 }
@@ -63,7 +71,7 @@ func (r *memberRepository) Update(member *models.Member) error {
 
 func (r *memberRepository) GetAllByChat(chatJid string) ([]*models.Member, error) {
 	rows, err := r.db.DB.Query(r.db.GetQuery(
-		"SELECT chatId, jid, messages, points, warns, silenced FROM member WHERE chatId = ?",
+		"SELECT chatId, jid, messages, points, warns, silenced, leftAt FROM member WHERE chatId = ?",
 	), chatJid)
 	if err != nil {
 		return nil, err
@@ -73,13 +81,41 @@ func (r *memberRepository) GetAllByChat(chatJid string) ([]*models.Member, error
 	var members []*models.Member
 	for rows.Next() {
 		var member models.Member
-		if err := rows.Scan(&member.ChatID, &member.JID, &member.Messages, &member.Points, &member.Warns, &member.Silenced); err != nil {
+		var leftAt sql.NullTime
+		if err := rows.Scan(&member.ChatID, &member.JID, &member.Messages, &member.Points, &member.Warns, &member.Silenced, &leftAt); err != nil {
 			return nil, err
 		}
 		if strings.HasSuffix(member.JID, "s.whatsapp.net") {
 			continue
 		}
+		if leftAt.Valid {
+			member.LeftAt = &leftAt.Time
+		}
 		members = append(members, &member)
 	}
 	return members, nil
+}
+
+func (r *memberRepository) MarkLeft(chatJid, memberJid string, at time.Time) error {
+	_, err := r.db.DB.Exec(r.db.GetQuery(
+		"UPDATE member SET leftAt = ? WHERE chatId = ? AND jid = ? AND leftAt IS NULL",
+	), at.UTC(), chatJid, memberJid)
+	return err
+}
+
+func (r *memberRepository) ClearLeft(chatJid, memberJid string) error {
+	_, err := r.db.DB.Exec(r.db.GetQuery(
+		"UPDATE member SET leftAt = NULL WHERE chatId = ? AND jid = ? AND leftAt IS NOT NULL",
+	), chatJid, memberJid)
+	return err
+}
+
+func (r *memberRepository) DeleteLeftBefore(cutoff time.Time) (int64, error) {
+	res, err := r.db.DB.Exec(r.db.GetQuery(
+		"DELETE FROM member WHERE leftAt IS NOT NULL AND leftAt <= ?",
+	), cutoff.UTC())
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

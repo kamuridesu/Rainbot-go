@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/repositories"
@@ -60,6 +61,22 @@ func (s *ChatService) UpdateChat(chat *models.Chat) error {
 		return errors.New("prefixo do chat deve ser de apenas 1 caractere")
 	}
 	return s.repo.Update(chat)
+}
+
+func (s *ChatService) MarkLeft(chatJid string) error {
+	return s.repo.MarkLeft(chatJid, time.Now().Truncate(time.Second))
+}
+
+func (s *ChatService) ClearLeft(chatJid string) error {
+	return s.repo.ClearLeft(chatJid)
+}
+
+func (s *ChatService) GetLeftBefore(cutoff time.Time) ([]string, error) {
+	return s.repo.FindLeftBefore(cutoff)
+}
+
+func (s *ChatService) Purge(chatJid string, cutoff time.Time) (bool, error) {
+	return s.repo.Purge(chatJid, cutoff)
 }
 
 func (s *ChatService) Close() error {

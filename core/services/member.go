@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/repositories"
@@ -45,6 +46,18 @@ func (s *MemberService) GetOrCreateMember(chatJid, memberJid string) (*models.Me
 
 func (s *MemberService) Update(member *models.Member) error {
 	return s.repo.Update(member)
+}
+
+func (s *MemberService) MarkLeft(chatJid, memberJid string) error {
+	return s.repo.MarkLeft(chatJid, memberJid, time.Now().Truncate(time.Second))
+}
+
+func (s *MemberService) ClearLeft(chatJid, memberJid string) error {
+	return s.repo.ClearLeft(chatJid, memberJid)
+}
+
+func (s *MemberService) DeleteLeftBefore(cutoff time.Time) (int64, error) {
+	return s.repo.DeleteLeftBefore(cutoff)
 }
 
 func (s *MemberService) Close() error {

@@ -1,0 +1,1 @@
+ALTER TABLE member ADD leftAt DATETIME;

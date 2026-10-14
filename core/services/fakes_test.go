@@ -32,8 +32,12 @@ func (f *fakeChatRepo) Update(chat *models.Chat) error {
 	}
 	return nil
 }
-func (f *fakeChatRepo) Delete(jid string) error { return nil }
-func (f *fakeChatRepo) Close() error            { return nil }
+func (f *fakeChatRepo) Delete(jid string) error                           { return nil }
+func (f *fakeChatRepo) MarkLeft(jid string, at time.Time) error           { return nil }
+func (f *fakeChatRepo) ClearLeft(jid string) error                        { return nil }
+func (f *fakeChatRepo) FindLeftBefore(cutoff time.Time) ([]string, error) { return nil, nil }
+func (f *fakeChatRepo) Purge(jid string, cutoff time.Time) (bool, error)  { return false, nil }
+func (f *fakeChatRepo) Close() error                                      { return nil }
 
 type fakeMemberRepo struct {
 	findByChatAndIdFn func(chatJid, memberJid string) (*models.Member, error)
@@ -66,7 +70,10 @@ func (f *fakeMemberRepo) GetAllByChat(chatJid string) ([]*models.Member, error) 
 	}
 	return nil, nil
 }
-func (f *fakeMemberRepo) Close() error { return nil }
+func (f *fakeMemberRepo) MarkLeft(chatJid, memberJid string, at time.Time) error { return nil }
+func (f *fakeMemberRepo) ClearLeft(chatJid, memberJid string) error              { return nil }
+func (f *fakeMemberRepo) DeleteLeftBefore(cutoff time.Time) (int64, error)       { return 0, nil }
+func (f *fakeMemberRepo) Close() error                                           { return nil }
 
 type fakeFilterRepo struct {
 	findAllByChatFn func(chatJid string) ([]*models.Filter, error)

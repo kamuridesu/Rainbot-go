@@ -138,6 +138,18 @@ func (h *Handler) Handle(event any) {
 				return
 			}
 
+			if message.Chat.LeftAt != nil {
+				if err := h.Bot.DB.Chat.ClearLeft(message.Chat.ChatID); err != nil {
+					slog.Error("Failed to clear chat left mark", "chat", message.Chat.ChatID, "err", err)
+				}
+			}
+
+			if message.Author.LeftAt != nil {
+				if err := h.Bot.DB.Member.ClearLeft(message.Chat.ChatID, message.Author.JID); err != nil {
+					slog.Error("Failed to clear member left mark", "chat", message.Chat.ChatID, "member", message.Author.JID, "err", err)
+				}
+			}
+
 			timestamp := message.RawEvent.Info.Timestamp
 			if timestamp.IsZero() {
 				timestamp = time.Now()
@@ -197,7 +209,26 @@ func (h *Handler) Handle(event any) {
 				}
 			}
 		}()
+	case *events.JoinedGroup:
+		if err := h.Bot.DB.Chat.ClearLeft(v.JID.String()); err != nil {
+			slog.Error("Failed to clear chat left mark", "chat", v.JID.String(), "err", err)
+		}
 	case *events.GroupInfo:
+		if v.Delete != nil || h.Bot.ContainsSelf(v.Leave) {
+			slog.Info("Bot left chat, scheduling cleanup", "chat", v.JID.String())
+			if err := h.Bot.DB.Chat.MarkLeft(v.JID.String()); err != nil {
+				slog.Error("Failed to mark chat as left", "chat", v.JID.String(), "err", err)
+			}
+			return
+		}
+		if h.Bot.ContainsSelf(v.Join) {
+			if err := h.Bot.DB.Chat.ClearLeft(v.JID.String()); err != nil {
+				slog.Error("Failed to clear chat left mark", "chat", v.JID.String(), "err", err)
+			}
+		}
+		if len(v.Leave) > 0 || len(v.Join) > 0 {
+			go h.updateMembersLeft(v)
+		}
 		if len(v.Join) > 0 {
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -224,6 +255,27 @@ func (h *Handler) Handle(event any) {
 					},
 				})
 			}()
+		}
+	}
+}
+
+func (h *Handler) updateMembersLeft(v *events.GroupInfo) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	chatJID := v.JID.String()
+	for _, jid := range v.Leave {
+		if lid := h.Bot.ToLID(ctx, jid); lid != "" {
+			if err := h.Bot.DB.Member.MarkLeft(chatJID, lid); err != nil {
+				slog.Error("Failed to mark member as left", "chat", chatJID, "member", lid, "err", err)
+			}
+		}
+	}
+	for _, jid := range v.Join {
+		if lid := h.Bot.ToLID(ctx, jid); lid != "" {
+			if err := h.Bot.DB.Member.ClearLeft(chatJID, lid); err != nil {
+				slog.Error("Failed to clear member left mark", "chat", chatJID, "member", lid, "err", err)
+			}
 		}
 	}
 }

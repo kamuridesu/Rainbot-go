@@ -13,6 +13,7 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
@@ -96,4 +97,43 @@ func (b *Bot) IsAlive() error {
 		return errors.New("wa client is offline")
 	}
 	return nil
+}
+
+func (b *Bot) IsSelf(jid types.JID) bool {
+	device := b.Client.Store()
+	if device == nil {
+		return false
+	}
+	jid = jid.ToNonAD()
+	if device.ID != nil && jid == device.ID.ToNonAD() {
+		return true
+	}
+	return !device.LID.IsEmpty() && jid == device.LID.ToNonAD()
+}
+
+func (b *Bot) ContainsSelf(jids []types.JID) bool {
+	for _, jid := range jids {
+		if b.IsSelf(jid) {
+			return true
+		}
+	}
+	return false
+}
+
+// ToLID returns the LID form of jid, which is how members are stored, or an
+// empty string if a phone number JID has no known LID.
+func (b *Bot) ToLID(ctx context.Context, jid types.JID) string {
+	jid = jid.ToNonAD()
+	if jid.Server == types.HiddenUserServer {
+		return jid.String()
+	}
+	device := b.Client.Store()
+	if device == nil || device.LIDs == nil {
+		return ""
+	}
+	lid, err := device.LIDs.GetLIDForPN(ctx, jid)
+	if err != nil || lid.IsEmpty() {
+		return ""
+	}
+	return lid.ToNonAD().String()
 }
