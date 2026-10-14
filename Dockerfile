@@ -1,4 +1,4 @@
-FROM golang:1.25.5-alpine AS build
+FROM golang:1.26-alpine AS build
 ARG TARGETARCH
 ENV CGO_ENABLED=1
 RUN apk add --no-cache gcc musl-dev upx 
