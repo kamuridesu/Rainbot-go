@@ -11,6 +11,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/bot"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
 
@@ -40,6 +41,7 @@ type Message struct {
 	Filters          []*models.Filter
 	MentionedMembers []*models.Member
 	QuotedMessage    *Message
+	IsFromMe         bool
 }
 
 func deduplicateMentions(mentions []string) []string {
@@ -79,6 +81,7 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 		Author:     member,
 		Filters:    filters,
 		Type:       msgType,
+		IsFromMe:   quotedMessage == nil && v.Info.IsFromMe,
 	}
 
 	if nextQuotedMsg != nil && quotedMessage == nil {
@@ -89,6 +92,10 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 		}
 
 		if quotedMessageAuthor != "" {
+			if jid, parseErr := types.ParseJID(quotedMessageAuthor); parseErr == nil {
+				message.QuotedMessage.IsFromMe = bot.IsSelf(jid)
+			}
+
 			quotedMember, fetchErr := fetchMember(bot, chatJID, quotedMessageAuthor)
 			if fetchErr == nil {
 				message.QuotedMessage.Author = quotedMember

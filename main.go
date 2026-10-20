@@ -16,6 +16,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/database"
 	"github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/core/modules/chatter"
 	"github.com/kamuridesu/rainbot-go/core/modules/cleanup"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
@@ -24,7 +25,7 @@ import (
 	_ "github.com/kamuridesu/rainbot-go/commands/admin"
 	_ "github.com/kamuridesu/rainbot-go/commands/fun"
 	_ "github.com/kamuridesu/rainbot-go/commands/rucoy"
-	// _ "github.com/kamuridesu/rainbot-go/commands/test"
+	_ "github.com/kamuridesu/rainbot-go/commands/test"
 )
 
 func init() {
@@ -49,6 +50,10 @@ func main() {
 		panic(err)
 	}
 	defer singleton.Close()
+
+	if err := chatter.LoadUsage(singleton.AIModel); err != nil {
+		slog.Error(fmt.Sprintf("failed to load AI model usage: %v", err))
+	}
 
 	ctx := context.Background()
 

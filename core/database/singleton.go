@@ -14,6 +14,7 @@ type DatabaseSingleton struct {
 	Filter  *services.FilterService
 	Message *services.MessageService
 	Quotly  *services.QuotlyService
+	AIModel *services.AIModelUsageService
 }
 
 var databaseSingleton *DatabaseSingleton
@@ -32,6 +33,7 @@ func InitDatabaseSingleton(driver, parameters string, usePartitionManager bool) 
 	filterRepo := repositories.NewFilterRepository(db)
 	messageRepo := repositories.NewMessageRepository(db)
 	quotlyRepo := repositories.NewQuotlyRepository(db)
+	aiModelRepo := repositories.NewAIModelUsageRepository(db)
 
 	if usePartitionManager {
 		messageRepo.StartPartitionManager()
@@ -42,6 +44,7 @@ func InitDatabaseSingleton(driver, parameters string, usePartitionManager bool) 
 	filterService := services.NewFilterRepository(filterRepo)
 	messageService := services.NewMessageService(messageRepo)
 	quotlyService := services.NewQuotlyService(quotlyRepo)
+	aiModelService := services.NewAIModelUsageService(aiModelRepo)
 
 	singleton := DatabaseSingleton{
 		Chat:    chatService,
@@ -49,6 +52,7 @@ func InitDatabaseSingleton(driver, parameters string, usePartitionManager bool) 
 		Filter:  filterService,
 		Message: messageService,
 		Quotly:  quotlyService,
+		AIModel: aiModelService,
 	}
 
 	databaseSingleton = &singleton

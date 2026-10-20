@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/kamuridesu/rainbot-go/core/chat/filter"
+	"github.com/kamuridesu/rainbot-go/core/chat/llm"
 	"github.com/kamuridesu/rainbot-go/core/chat/mute"
 	"github.com/kamuridesu/rainbot-go/core/chat/offenses"
 	"github.com/kamuridesu/rainbot-go/core/chat/profanity"
@@ -25,6 +26,10 @@ func ChatHandler(m *messages.Message) {
 		return
 	}
 	if err := filter.GetChatFilters(m); err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	if err := llm.Answer(m); err != nil {
 		slog.Error(err.Error())
 		return
 	}
