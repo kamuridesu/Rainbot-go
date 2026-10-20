@@ -1,0 +1,1 @@
+ALTER TABLE chat add allowLLM INTEGER DEFAULT 1;

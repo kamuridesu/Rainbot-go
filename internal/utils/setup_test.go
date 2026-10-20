@@ -102,6 +102,7 @@ func TestGetHumanReadableSetup(t *testing.T) {
 		AllowQuote:             1,
 		QuoteNMessages:         300,
 		AllowOffensiveReplies:  0,
+		AllowLLM:               0,
 	}
 
 	got := GetHumanReadableSetup(chat)
@@ -121,6 +122,7 @@ func TestGetHumanReadableSetup(t *testing.T) {
 		"ativarQuote=sim",
 		"quoteRate=300",
 		"responderOfensa=não",
+		"ativarIA=não",
 	}
 
 	for _, want := range wantContains {

@@ -18,5 +18,6 @@ type Chat struct {
 	AllowQuote             int        `json:"allowQuote"`
 	QuoteNMessages         int        `json:"quoteNMessages"`
 	AllowOffensiveReplies  int        `json:"allowOffensiveReplies"`
+	AllowLLM               int        `json:"allowLLM"`
 	LeftAt                 *time.Time `json:"leftAt"`
 }

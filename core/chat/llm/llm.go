@@ -28,6 +28,9 @@ func hasBotMention(text string, names ...string) bool {
 }
 
 func Answer(m *messages.Message) error {
+	if m.Chat.AllowLLM == 0 {
+		return nil
+	}
 
 	sendMessage := func(message string) error {
 		c := chatter.New(m.Bot.DB.AIModel)

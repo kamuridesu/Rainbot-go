@@ -56,6 +56,7 @@ func TestChatServiceGetOrCreateChatNew(t *testing.T) {
 		AllowQuote:             1,
 		QuoteNMessages:         300,
 		AllowOffensiveReplies:  1,
+		AllowLLM:               1,
 	}
 	if *got != *want {
 		t.Errorf("GetOrCreateChat() = %+v, want %+v", *got, *want)

@@ -44,6 +44,9 @@ func TestChatRepositoryCreateAndFindById(t *testing.T) {
 	if chat.AllowOffensiveReplies != 1 {
 		t.Errorf("AllowOffensiveReplies = %d, want 1", chat.AllowOffensiveReplies)
 	}
+	if chat.AllowLLM != 1 {
+		t.Errorf("AllowLLM = %d, want 1", chat.AllowLLM)
+	}
 }
 
 func TestChatRepositoryFindByIdPropagatesNonNoRowsErrors(t *testing.T) {
@@ -102,6 +105,7 @@ func TestChatRepositoryUpdate(t *testing.T) {
 		AllowQuote:             0,
 		QuoteNMessages:         50,
 		AllowOffensiveReplies:  0,
+		AllowLLM:               0,
 	}
 
 	if err := repo.Update(updated); err != nil {

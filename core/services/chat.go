@@ -44,6 +44,7 @@ func (s *ChatService) GetOrCreateChat(jid string) (*models.Chat, error) {
 		AllowQuote:             1,
 		QuoteNMessages:         300,
 		AllowOffensiveReplies:  1,
+		AllowLLM:               1,
 	}, nil
 }
 
