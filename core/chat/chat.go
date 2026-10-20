@@ -25,13 +25,17 @@ func ChatHandler(m *messages.Message) {
 		slog.Info("Someone offended the bot")
 		return
 	}
+	if llm.Matches(m) {
+		if err := llm.Answer(m); err != nil {
+			slog.Error(err.Error())
+		}
+		return
+	}
+
 	if err := filter.GetChatFilters(m); err != nil {
 		slog.Error(err.Error())
 		return
 	}
-	if err := llm.Answer(m); err != nil {
-		slog.Error(err.Error())
-		return
-	}
+
 	quotly.RandomQuoteDrop(m)
 }

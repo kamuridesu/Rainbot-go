@@ -103,6 +103,7 @@ func TestGetHumanReadableSetup(t *testing.T) {
 		QuoteNMessages:         300,
 		AllowOffensiveReplies:  0,
 		AllowLLM:               0,
+		BotStyle:               "seja formal",
 	}
 
 	got := GetHumanReadableSetup(chat)
@@ -123,11 +124,31 @@ func TestGetHumanReadableSetup(t *testing.T) {
 		"quoteRate=300",
 		"responderOfensa=não",
 		"ativarIA=não",
+		`estiloBot="seja formal"`,
 	}
 
 	for _, want := range wantContains {
 		if !strings.Contains(got, want) {
 			t.Errorf("GetHumanReadableSetup() missing %q, got:\n%s", want, got)
 		}
+	}
+}
+
+func TestParseSetupTextBotStyle(t *testing.T) {
+	chat := &models.Chat{}
+	err := ParseSetupText([]string{"estiloBot= Seja Formal ", "chaveInvalida=sim"}, chat, nil)
+	if err == nil {
+		t.Fatal("expected error from the unknown key")
+	}
+	if chat.BotStyle != "Seja Formal" {
+		t.Errorf("BotStyle = %q, want %q", chat.BotStyle, "Seja Formal")
+	}
+}
+
+func TestParseSetupTextRejectsLongBotStyle(t *testing.T) {
+	chat := &models.Chat{}
+	err := ParseSetupText([]string{"estiloBot=" + strings.Repeat("a", maxBotStyleLength+1)}, chat, nil)
+	if err == nil {
+		t.Fatal("expected error for bot style over the limit")
 	}
 }

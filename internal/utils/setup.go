@@ -17,6 +17,8 @@ func validateBool(value string, index int) error {
 	return nil
 }
 
+const maxBotStyleLength = 500
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -104,6 +106,11 @@ func ParseSetupText(args []string, chat *models.Chat, chatService *services.Chat
 				return err
 			}
 			chat.AllowLLM = boolToInt(value == "sim")
+		case "estiloBot":
+			if len([]rune(data[1])) > maxBotStyleLength {
+				return fmt.Errorf("o estilo do bot deve ter no máximo %d caracteres", maxBotStyleLength)
+			}
+			chat.BotStyle = strings.TrimSpace(data[1])
 		default:
 			return errors.New("Opção não reconhecida: " + key)
 		}
@@ -137,6 +144,7 @@ func GetHumanReadableSetup(chat *models.Chat) string {
 	message += fmt.Sprintf("quoteRate=%d\n", chat.QuoteNMessages)
 	message += fmt.Sprintf("responderOfensa=%s\n", boolTHuman(chat.AllowOffensiveReplies == 1))
 	message += fmt.Sprintf("ativarIA=%s\n", boolTHuman(chat.AllowLLM == 1))
+	message += fmt.Sprintf("estiloBot=\"%s\"\n", chat.BotStyle)
 
 	return message
 

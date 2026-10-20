@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"unicode"
@@ -27,15 +26,28 @@ func hasBotMention(text string, names ...string) bool {
 	return false
 }
 
-func Answer(m *messages.Message) error {
+func Matches(m *messages.Message) bool {
 	if m.Chat.AllowLLM == 0 {
-		return nil
+		return false
 	}
+
+	if hasBotMention(*m.Text, "hifumi") {
+		return true
+	}
+
+	if m.QuotedMessage != nil && m.QuotedMessage.IsFromMe {
+		return true
+	}
+
+	return false
+}
+
+func Answer(m *messages.Message) error {
 
 	sendMessage := func(message string) error {
 		c := chatter.New(m.Bot.DB.AIModel)
 
-		answer, err := c.GenerateMessage(m.Ctx, *m.Bot.Name, m.Chat.Prefix, message)
+		answer, err := c.GenerateMessage(m.Ctx, *m.Bot.Name, m.Chat.Prefix, m.Chat.BotStyle, message)
 		if err != nil {
 			return err
 		}
@@ -45,14 +57,6 @@ func Answer(m *messages.Message) error {
 
 	if hasBotMention(*m.Text, "hifumi") {
 		return sendMessage(*m.Text + "\nauthor: " + m.Author.JID)
-	}
-
-	if m.QuotedMessage == nil {
-		return errors.New("quoted mesage is empty")
-	}
-
-	if !m.QuotedMessage.IsFromMe {
-		return errors.New("quoted message is not from bot")
 	}
 
 	var text strings.Builder

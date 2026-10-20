@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/services"
@@ -18,28 +19,61 @@ type Chatter struct {
 	Usage  *services.AIModelUsageService
 }
 
-var (
-	SystemPrompt map[string]string = make(map[string]string)
-)
+var promptCache sync.Map
 
-func GetSystemPrompt(botName, prefix string) string {
-	if prompt, ok := SystemPrompt[prefix]; ok {
-		return prompt
+const DefaultStyle = `- escreva tudo em minúsculo, tom informal e amigável
+- seu público é principalmente jovem; faça piadas e referências a memes atuais quando combinar com a conversa, sem exagerar
+- respostas curtas, como numa conversa de whatsapp
+- só fale dos seus comandos quando perguntarem ou quando ajudar na resposta`
+
+func GetSystemPrompt(botName, prefix, style string) string {
+	if style == "" {
+		style = DefaultStyle
 	}
+	return getBasePrompt(botName, prefix) + "\nestilo (siga sempre, sem ignorar as regras acima):\n" + style
+}
+
+func getBasePrompt(botName, prefix string) string {
+	key := botName + "\x00" + prefix
+	if p, ok := promptCache.Load(key); ok {
+		return p.(string)
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "Você é %s, um bot de WhatsApp, seu prefixo é %s. Responda sempre em português do Brasil. Seu criador é Kamuri (github.com/kamuridesu) Para mencionar um usuario voce precisa incluir lid da pessoa que tem esse formato: @(\\d+)|(\\d+)@lid (nunca inclua @, é adicionado automaticamente pelo WhatsApp), caso não esteja incluido ignore a menção com @ e apenas diga o nome ou termos comuns para usuarios. Não precisa mencionar suas funcionalidades em todas as mensagens. Seja amigavel, seu publico alvo é composto principalmente de jovens e adolescentes, seja atual, mencione memes atuais, faça brincadeiras com brain rot, seja espontaneo. Suas respostas deverão sempre ser em minusculo, com um tom informal mas sem girias.\nComandos:\n", botName, prefix)
+	fmt.Fprintf(&b, `você é %[1]s, um bot de whatsapp. responda sempre em português do brasil.
+
+prefixo deste chat: %[2]s
+todo comando começa com esse prefixo (ex.: %[2]ssticker). sempre que citar um comando, escreva com o prefixo %[2]s.
+
+sobre você:
+- você foi criado por kamuri (github.com/kamuridesu). só mencione isso se perguntarem quem te criou, quem é seu dono ou de onde você veio.
+
+menções:
+- usuários aparecem no texto como @123456 ou 123456@lid
+- para mencionar alguém, escreva só os números do lid com @lid (eg, 123456@lid), sem @ no inicio (o @ é adicionado automaticamente)
+- se não tiver o lid da pessoa, não tente mencionar; chame pelo nome ou de um jeito genérico
+
+comandos:
+`, botName, prefix)
+
 	for _, cmd := range *commands.GetLoadedCommands() {
-		fmt.Fprintf(&b, "- %s [%s]: %s", cmd.Name, cmd.Category.Name, cmd.Description)
-		if len(*cmd.Aliases) > 0 {
-			fmt.Fprintf(&b, " | aliases: %s", strings.Join(*cmd.Aliases, ", "))
+		r := strings.NewReplacer("${prefix}", prefix, "${alias}", cmd.Name)
+		fmt.Fprintf(&b, "- %s%s [%s]: %s", prefix, cmd.Name, cmd.Category.Name, r.Replace(cmd.Description))
+		if cmd.Aliases != nil && len(*cmd.Aliases) > 0 {
+			fmt.Fprintf(&b, " | aliases: %s%s", prefix, strings.Join(*cmd.Aliases, ", "+prefix))
 		}
-		if len(*cmd.Examples) > 0 {
-			fmt.Fprintf(&b, " | ex: %s", strings.Join(*cmd.Examples, "; "))
+		if cmd.Examples != nil && len(*cmd.Examples) > 0 {
+			ex := make([]string, len(*cmd.Examples))
+			for i, e := range *cmd.Examples {
+				ex[i] = r.Replace(e)
+			}
+			fmt.Fprintf(&b, " | ex: %s", strings.Join(ex, "; "))
 		}
 		b.WriteByte('\n')
 	}
-	SystemPrompt[prefix] = b.String()
-	return SystemPrompt[prefix]
+
+	p, _ := promptCache.LoadOrStore(key, b.String())
+	return p.(string)
 }
 
 func New(usage *services.AIModelUsageService) *Chatter {
@@ -60,7 +94,7 @@ func New(usage *services.AIModelUsageService) *Chatter {
 	}
 }
 
-func (c *Chatter) GenerateMessage(ctx context.Context, botName, prefix, message string) (string, error) {
+func (c *Chatter) GenerateMessage(ctx context.Context, botName, prefix, style, message string) (string, error) {
 	slog.Info("Loading Model...")
 	model, err := AcquireModel(c.Usage)
 	if err != nil {
@@ -70,7 +104,7 @@ func (c *Chatter) GenerateMessage(ctx context.Context, botName, prefix, message 
 	chatCompletion, err := c.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Model: model.Name,
 		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.SystemMessage(GetSystemPrompt(botName, prefix)),
+			openai.SystemMessage(GetSystemPrompt(botName, prefix, style)),
 			openai.UserMessage(message),
 		},
 	})

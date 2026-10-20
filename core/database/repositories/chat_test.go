@@ -106,6 +106,7 @@ func TestChatRepositoryUpdate(t *testing.T) {
 		QuoteNMessages:         50,
 		AllowOffensiveReplies:  0,
 		AllowLLM:               0,
+		BotStyle:               "seja formal",
 	}
 
 	if err := repo.Update(updated); err != nil {
