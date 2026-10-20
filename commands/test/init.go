@@ -20,7 +20,7 @@ func init() {
 		fmt.Println("rcvd test command")
 		c := chatter.New(m.Bot.DB.AIModel)
 		fmt.Println("chatter instantiated")
-		msg, err := c.GenerateMessage(m.Ctx, *m.Bot.Name, strings.Join(*m.Args, " "))
+		msg, err := c.GenerateMessage(m.Ctx, *m.Bot.Name, m.Chat.Prefix, strings.Join(*m.Args, " "))
 		if err != nil {
 			slog.Error(err.Error())
 			m.Reply("error generating response: "+err.Error(), emojis.Fail)

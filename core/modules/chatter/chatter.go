@@ -19,15 +19,15 @@ type Chatter struct {
 }
 
 var (
-	SystemPrompt = ""
+	SystemPrompt map[string]string = make(map[string]string)
 )
 
-func GetSystemPrompt(botName string) string {
-	if SystemPrompt != "" {
-		return SystemPrompt
+func GetSystemPrompt(botName, prefix string) string {
+	if prompt, ok := SystemPrompt[prefix]; ok {
+		return prompt
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Você é %s, um bot de WhatsApp. Responda sempre em português do Brasil. Para mencionar um usuario voce precisa incluir lid da pessoa que tem esse formato: @(\\d+)|(\\d+)@lid (nunca inclua @, é adicionado automaticamente pelo WhatsApp), caso não esteja incluido ignore a menção com @ e apenas diga o nome ou termos comuns para usuarios. Não precisa mencionar suas funcionalidades em todas as mensagens. Seja amigavel, seu publico alvo é composto principalmente de jovens e adolescentes, seja atual, mencione memes atuais, faça brincadeiras com brain rot, seja espontaneo. Suas respostas deverão sempre ser em minusculo, com um tom informal mas sem girias.\nComandos:\n", botName)
+	fmt.Fprintf(&b, "Você é %s, um bot de WhatsApp, seu prefixo é %s. Responda sempre em português do Brasil. Seu criador é Kamuri (github.com/kamuridesu) Para mencionar um usuario voce precisa incluir lid da pessoa que tem esse formato: @(\\d+)|(\\d+)@lid (nunca inclua @, é adicionado automaticamente pelo WhatsApp), caso não esteja incluido ignore a menção com @ e apenas diga o nome ou termos comuns para usuarios. Não precisa mencionar suas funcionalidades em todas as mensagens. Seja amigavel, seu publico alvo é composto principalmente de jovens e adolescentes, seja atual, mencione memes atuais, faça brincadeiras com brain rot, seja espontaneo. Suas respostas deverão sempre ser em minusculo, com um tom informal mas sem girias.\nComandos:\n", botName, prefix)
 	for _, cmd := range *commands.GetLoadedCommands() {
 		fmt.Fprintf(&b, "- %s [%s]: %s", cmd.Name, cmd.Category.Name, cmd.Description)
 		if len(*cmd.Aliases) > 0 {
@@ -38,8 +38,8 @@ func GetSystemPrompt(botName string) string {
 		}
 		b.WriteByte('\n')
 	}
-	SystemPrompt = b.String()
-	return SystemPrompt
+	SystemPrompt[prefix] = b.String()
+	return SystemPrompt[prefix]
 }
 
 func New(usage *services.AIModelUsageService) *Chatter {
@@ -60,7 +60,7 @@ func New(usage *services.AIModelUsageService) *Chatter {
 	}
 }
 
-func (c *Chatter) GenerateMessage(ctx context.Context, botName, message string) (string, error) {
+func (c *Chatter) GenerateMessage(ctx context.Context, botName, prefix, message string) (string, error) {
 	slog.Info("Loading Model...")
 	model, err := AcquireModel(c.Usage)
 	if err != nil {
@@ -70,7 +70,7 @@ func (c *Chatter) GenerateMessage(ctx context.Context, botName, message string) 
 	chatCompletion, err := c.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Model: model.Name,
 		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.SystemMessage(GetSystemPrompt(botName)),
+			openai.SystemMessage(GetSystemPrompt(botName, prefix)),
 			openai.UserMessage(message),
 		},
 	})

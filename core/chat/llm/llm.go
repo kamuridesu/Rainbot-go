@@ -35,7 +35,7 @@ func Answer(m *messages.Message) error {
 	sendMessage := func(message string) error {
 		c := chatter.New(m.Bot.DB.AIModel)
 
-		answer, err := c.GenerateMessage(m.Ctx, *m.Bot.Name, message)
+		answer, err := c.GenerateMessage(m.Ctx, *m.Bot.Name, m.Chat.Prefix, message)
 		if err != nil {
 			return err
 		}
