@@ -20,6 +20,11 @@ var (
 	searchApiRootUrl = "https://solr.sscdn.co/letras/m1/?callback=LetrasSug&q="
 )
 
+func addHeaders(req *http.Request) {
+	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0")
+	req.Header.Set("Accept", "*/*")
+}
+
 type Lyrics struct {
 	ctx context.Context
 }
@@ -96,8 +101,7 @@ func (l *Lyrics) Search(term string) (*ResultData, error) {
 		slog.Error(err.Error())
 		return nil, err
 	}
-	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "*/*")
+	addHeaders(req)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -149,6 +153,7 @@ func (l *Lyrics) GetLyrics(r *ResultData) (*string, error) {
 		slog.Error(err.Error())
 		return nil, err
 	}
+	addHeaders(req)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
