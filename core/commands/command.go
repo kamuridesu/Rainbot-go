@@ -46,9 +46,6 @@ type Command struct {
 	Category    *Category
 	Description string
 	Examples    *[]string
-	IsAdult     bool
-	IsGame      bool
-	IsFun       bool
 	Callable    Callback
 	Guards      []func(message *m.Message) error
 }
@@ -80,9 +77,6 @@ func init() {
 		MiscCategory,
 		&[]string{"ajuda", "menu"},
 		&[]string{"${prefix}${alias}", "${prefix}${alias} help"},
-		false,
-		false,
-		false,
 		help,
 	)
 }
@@ -118,9 +112,6 @@ func NewCommand(name,
 	category *Category,
 	aliases,
 	examples *[]string,
-	isFun,
-	isGame,
-	isAdult bool,
 	callback Callback,
 	guards ...func(message *m.Message) error) (*Command, error) {
 
@@ -136,9 +127,6 @@ func NewCommand(name,
 		Category:    category,
 		Description: desc,
 		Examples:    examples,
-		IsAdult:     isAdult,
-		IsGame:      isGame,
-		IsFun:       isFun,
 		Callable:    callback,
 		Guards:      guards,
 	}
@@ -167,6 +155,17 @@ func GetCategories() []*Category {
 		}
 	}
 	return categories
+}
+
+func GetToggleableCategories() []string {
+	var names []string
+	for _, category := range GetCategories() {
+		if category.Name == "admin" || category.Name == MiscCategory.Name {
+			continue
+		}
+		names = append(names, category.Name)
+	}
+	return names
 }
 
 func FindCategory(name string) *Category {
@@ -275,11 +274,7 @@ func RunCommand(msg *m.Message) {
 		return
 	}
 
-	isBlocked := (cmd.IsAdult && msg.Chat.AllowAdults == 0) ||
-		(cmd.IsFun && msg.Chat.AllowFun == 0) ||
-		(cmd.IsGame && msg.Chat.AllowGames == 0)
-
-	if msg.IsFromGroup() && isBlocked {
+	if msg.IsFromGroup() && msg.Chat.IsCategoryDisabled(cmd.Category.Name) {
 		msg.Reply("Comando não pode ser usado neste grupo.", emojis.Fail)
 		return
 	}

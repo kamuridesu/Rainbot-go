@@ -35,7 +35,7 @@ func (r *chatRepository) Close() error {
 
 func (r *chatRepository) FindById(jid string) (*models.Chat, error) {
 	row := r.db.DB.QueryRow(r.db.GetQuery(
-		"SELECT chatId, isBotEnabled, prefix, adminOnly, customProfanityWords, profanityFilterEnabled, warnBanThreshold, allowAdults, allowGames, allowFun, welcomeMessage, countMessages, allowQuote, quotlyNMessages, allowOffensiveReplies, allowLLM, botStyle, leftAt FROM chat WHERE chatId = ?",
+		"SELECT chatId, isBotEnabled, prefix, adminOnly, customProfanityWords, profanityFilterEnabled, warnBanThreshold, disabledCategories, welcomeMessage, countMessages, allowQuote, quotlyNMessages, allowOffensiveReplies, allowLLM, botStyle, leftAt FROM chat WHERE chatId = ?",
 	), jid)
 
 	var chat models.Chat
@@ -48,9 +48,7 @@ func (r *chatRepository) FindById(jid string) (*models.Chat, error) {
 		&chat.CustomProfanityWords,
 		&chat.ProfanityFilterEnabled,
 		&chat.WarnBanThreshold,
-		&chat.AllowAdults,
-		&chat.AllowGames,
-		&chat.AllowFun,
+		&chat.DisabledCategories,
 		&chat.WelcomeMessage,
 		&chat.CountMessages,
 		&chat.AllowQuote,
@@ -88,9 +86,7 @@ func (r *chatRepository) Update(chat *models.Chat) error {
 			customProfanityWords = ?, 
 			profanityFilterEnabled = ?, 
 			warnBanThreshold = ?, 
-			allowAdults = ?, 
-			allowGames = ?, 
-			allowFun = ?, 
+			disabledCategories = ?, 
 			welcomeMessage = ?, 
 			countMessages = ?, 
 			allowQuote = ?, 
@@ -105,9 +101,7 @@ func (r *chatRepository) Update(chat *models.Chat) error {
 		chat.CustomProfanityWords,
 		chat.ProfanityFilterEnabled,
 		chat.WarnBanThreshold,
-		chat.AllowAdults,
-		chat.AllowGames,
-		chat.AllowFun,
+		chat.DisabledCategories,
 		chat.WelcomeMessage,
 		chat.CountMessages,
 		chat.AllowQuote,

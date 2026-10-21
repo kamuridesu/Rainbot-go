@@ -20,9 +20,6 @@ func init() {
 		DiversaoCategory,
 		nil,
 		nil,
-		true,
-		true,
-		false,
 		Slot,
 	)
 
@@ -32,9 +29,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"filtro"},
 		&[]string{"${prefix}${alias} antedeguemon"},
-		true,
-		false,
-		false,
 		func(m *messages.Message) {
 			if len(*m.Args) < 1 {
 				ShowFilters(m)
@@ -50,9 +44,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"rfilter", "rmfilter", "deletafilter"},
 		nil,
-		true,
-		false,
-		false,
 		DeleteFilter,
 		commands.HasArgs(1),
 	)
@@ -63,9 +54,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"fig", "s", "figu"},
 		nil,
-		true,
-		false,
-		false,
 		NewStickerSquash,
 	)
 
@@ -75,9 +63,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"figs", "ss", "figus"},
 		nil,
-		true,
-		false,
-		false,
 		NewStickerOriginal,
 	)
 
@@ -85,8 +70,7 @@ func init() {
 		"casal",
 		"Sorteia 2 membros e forma um casal",
 		DiversaoCategory,
-		nil, nil, true, false, false,
-		Casal,
+		nil, nil, Casal,
 		commands.IsGroup,
 	)
 
@@ -96,7 +80,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"c", "copiar", "revelar", "reveal"},
 		nil,
-		true, false, false,
 		RevealMessage,
 		commands.HasQuotedMessage,
 	)
@@ -106,24 +89,23 @@ func init() {
 		DiversaoCategory,
 		nil,
 		&[]string{"${prefix}chance de eu ficar rico"},
-		true, false, false, ChanceDe, commands.HasArgs(1))
+		ChanceDe, commands.HasArgs(1))
 
 	commands.NewCommand("percent",
 		"Calcula o quanto % você é",
 		DiversaoCategory,
 		&[]string{"perc"},
 		&[]string{"${prefix}${alias} pobre"},
-		true, false, false, Percent, commands.HasArgs(1))
+		Percent, commands.HasArgs(1))
 
-	commands.NewCommand("gado", "Diz o seu nivel de gado", DiversaoCategory, nil, nil, true, false, false, Gado)
-	commands.NewCommand("gay", "Diz o seu nivel de gay", DiversaoCategory, nil, nil, true, false, false, Gay)
+	commands.NewCommand("gado", "Diz o seu nivel de gado", DiversaoCategory, nil, nil, Gado)
+	commands.NewCommand("gay", "Diz o seu nivel de gay", DiversaoCategory, nil, nil, Gay)
 
 	commands.NewCommand("lyrics",
 		"Envia a letra de alguma música",
 		DiversaoCategory,
 		&[]string{"letras"},
 		&[]string{"${prefix}${alias} never gonna give you up"},
-		true, false, false,
 		func(m *messages.Message) {
 			args := strings.Join(*m.Args, " ")
 			l, err := lyrics.SearchLyrics(m.Ctx, args)
@@ -135,15 +117,14 @@ func init() {
 		},
 	)
 
-	commands.NewCommand("video", "Baixa um video", DiversaoCategory, nil, nil, true, false, false, DownloadVideo, commands.HasArgs(1, true))
-	commands.NewCommand("music", "Baixa uma musica", DiversaoCategory, nil, nil, true, false, false, DownloadAudio, commands.HasArgs(1, true))
+	commands.NewCommand("video", "Baixa um video", DiversaoCategory, nil, nil, DownloadVideo, commands.HasArgs(1, true))
+	commands.NewCommand("music", "Baixa uma musica", DiversaoCategory, nil, nil, DownloadAudio, commands.HasArgs(1, true))
 
 	commands.NewCommand("quotly",
 		"gera um quote",
 		DiversaoCategory,
 		&[]string{"q"},
 		nil,
-		true, false, false,
 		HandleQuoteCommand,
 		commands.HasQuotedMessage,
 	)
@@ -153,7 +134,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"qrand"},
 		nil,
-		true, false, false,
 		RandomQuote,
 	)
 
@@ -162,7 +142,6 @@ func init() {
 		DiversaoCategory,
 		&[]string{"qdel", "qd"},
 		nil,
-		true, false, false,
 		HandleQuoteDeleteCommand,
 		commands.HasQuotedMessage,
 	)

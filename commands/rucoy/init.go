@@ -13,7 +13,6 @@ func init() {
 		RucoyCategory,
 		&[]string{"ronline"},
 		&[]string{"${prefix}${alias} Nome-da-Guild", "${prefix}${alias} B L A C K O U T"},
-		true, true, false,
 		RucoyOnlineGuild,
 		commands.HasArgs(1),
 	)
@@ -23,7 +22,6 @@ func init() {
 		RucoyCategory,
 		nil,
 		&[]string{"${prefix}${alias} 400 450 42000", "${prefix}${alias} 400 450 42000 kina", "${prefix}${alias} 400 450 42000 pally 8", "${prefix}${alias} 400 450 42000 8 mage"},
-		true, true, false,
 		Upskill,
 		commands.HasArgs(3),
 	)
@@ -33,7 +31,6 @@ func init() {
 	//	RucoyCategory,
 	//	nil,
 	//	&[]string{"${prefix}${alias} 350 400 20kk", "${prefix}${alias} 350 400 20kk 8", "${prefix}${alias} 275 300 5kk"},
-	//	true, true, false,
 	//	Uplevel,
 	//	commands.HasArgs(3),
 	//)
@@ -43,7 +40,6 @@ func init() {
 		RucoyCategory,
 		nil,
 		&[]string{"${prefix}${alias} 5 351 391 -50", "${prefix}${alias} 5 351 391 -50 90", "${prefix}${alias} 7 400 450 0"},
-		true, true, false,
 		RucoyTrain,
 		commands.HasArgs(4),
 	)
@@ -53,7 +49,6 @@ func init() {
 		RucoyCategory,
 		nil,
 		&[]string{"${prefix}${alias} Nome-da-Guild", "${prefix}${alias} B L A C K O U T"},
-		true, true, false,
 		RucoyAFKGuild,
 		commands.HasArgs(1),
 	)
@@ -63,7 +58,6 @@ func init() {
 		RucoyCategory,
 		nil,
 		&[]string{"${prefix}${alias} Nome-do-Jogador", "${prefix}${alias} Kamuri SG"},
-		true, true, false,
 		RucoyInfo,
 		commands.HasArgs(1),
 	)
@@ -73,7 +67,6 @@ func init() {
 		RucoyCategory,
 		nil,
 		&[]string{"${prefix}${alias} 400 Nome-da-Guild", "${prefix}${alias} 500 B L A C K O U T"},
-		true, true, false,
 		RucoyMetaGuild,
 		commands.HasArgs(2),
 	)

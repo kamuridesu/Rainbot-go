@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"slices"
+	"strings"
+	"time"
+)
 
 type Chat struct {
 	ChatID                 string     `json:"chatId"`
@@ -10,9 +14,7 @@ type Chat struct {
 	CustomProfanityWords   string     `json:"customProfanityWords"`
 	ProfanityFilterEnabled int        `json:"profanityFilterEnabled"`
 	WarnBanThreshold       int        `json:"warnBanThreshold"`
-	AllowAdults            int        `json:"allowAdults"`
-	AllowGames             int        `json:"allowGames"`
-	AllowFun               int        `json:"allowFun"`
+	DisabledCategories     string     `json:"disabledCategories"`
 	WelcomeMessage         string     `json:"welcomeMessage"`
 	CountMessages          int        `json:"countMessages"`
 	AllowQuote             int        `json:"allowQuote"`
@@ -21,4 +23,20 @@ type Chat struct {
 	AllowLLM               int        `json:"allowLLM"`
 	BotStyle               string     `json:"botStyle"`
 	LeftAt                 *time.Time `json:"leftAt"`
+}
+
+func (c *Chat) GetDisabledCategories() []string {
+	var categories []string
+	for category := range strings.SplitSeq(c.DisabledCategories, ",") {
+		if category = strings.TrimSpace(category); category != "" {
+			categories = append(categories, category)
+		}
+	}
+	return categories
+}
+
+func (c *Chat) IsCategoryDisabled(name string) bool {
+	return slices.ContainsFunc(c.GetDisabledCategories(), func(category string) bool {
+		return strings.EqualFold(category, name)
+	})
 }

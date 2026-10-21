@@ -31,7 +31,6 @@ func registerTestCommand() {
 			testCategory,
 			&[]string{"commandtestalias"},
 			&[]string{"${prefix}${alias} example"},
-			true, false, false,
 			func(m *messages.Message) { testCmdCalled = true },
 		); err != nil {
 			panic(err)
@@ -86,7 +85,7 @@ func TestNewCommandRejectsDuplicateName(t *testing.T) {
 			t.Error("expected NewCommand to panic on a duplicate name")
 		}
 	}()
-	NewCommand(testCmdName, "dup", testCategory, nil, nil, false, false, false, func(m *messages.Message) {})
+	NewCommand(testCmdName, "dup", testCategory, nil, nil, func(m *messages.Message) {})
 }
 
 func TestNewCommandRejectsDuplicateCallback(t *testing.T) {
@@ -101,7 +100,7 @@ func TestNewCommandRejectsDuplicateCallback(t *testing.T) {
 			t.Error("expected NewCommand to panic when reusing an already-registered callback")
 		}
 	}()
-	NewCommand("a-different-name-entirely", "dup callback", testCategory, nil, nil, false, false, false, existing.Callable)
+	NewCommand("a-different-name-entirely", "dup callback", testCategory, nil, nil, existing.Callable)
 }
 
 func TestGetCategoriesIncludesRegistered(t *testing.T) {
@@ -192,9 +191,6 @@ func TestHelpCategorySendsMenuAsBannerCaption(t *testing.T) {
 		bannerCategory,
 		nil,
 		nil,
-		false,
-		false,
-		false,
 		func(m *messages.Message) {},
 	)
 
@@ -223,7 +219,7 @@ func TestRunCommandExecutesCallback(t *testing.T) {
 	testCmdCalled = false
 
 	fake := &botfakes.FakeClient{}
-	m := newCommandsTestMessage(fake, &models.Chat{AllowFun: 1}, testCmdName)
+	m := newCommandsTestMessage(fake, &models.Chat{}, testCmdName)
 
 	RunCommand(m)
 
@@ -237,13 +233,13 @@ func TestRunCommandBlockedByChatCategorySetting(t *testing.T) {
 	testCmdCalled = false
 
 	fake := &botfakes.FakeClient{}
-	m := newCommandsTestMessage(fake, &models.Chat{AllowFun: 0}, testCmdName)
+	m := newCommandsTestMessage(fake, &models.Chat{DisabledCategories: testCategory.Name}, testCmdName)
 	m.RawEvent.Info.IsGroup = true
 
 	RunCommand(m)
 
 	if testCmdCalled {
-		t.Error("expected the callback NOT to run when fun commands are disabled for the chat")
+		t.Error("expected the callback NOT to run when the command category is disabled for the chat")
 	}
 	if len(fake.SentMessages) == 0 {
 		t.Error("expected a reply explaining the command is blocked")

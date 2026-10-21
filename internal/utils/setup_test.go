@@ -37,7 +37,7 @@ func TestBoolToInt(t *testing.T) {
 
 func TestParseSetupTextRejectsMalformedLine(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"noEqualsSign"}, chat, nil)
+	err := ParseSetupText([]string{"noEqualsSign"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for line without '='")
 	}
@@ -45,7 +45,7 @@ func TestParseSetupTextRejectsMalformedLine(t *testing.T) {
 
 func TestParseSetupTextRejectsUnknownKey(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"chaveInvalida=sim"}, chat, nil)
+	err := ParseSetupText([]string{"chaveInvalida=sim"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for unrecognized key")
 	}
@@ -53,7 +53,7 @@ func TestParseSetupTextRejectsUnknownKey(t *testing.T) {
 
 func TestParseSetupTextRejectsInvalidNumber(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"limiteDeAvisos=abc"}, chat, nil)
+	err := ParseSetupText([]string{"limiteDeAvisos=abc"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for non-numeric limiteDeAvisos")
 	}
@@ -61,7 +61,7 @@ func TestParseSetupTextRejectsInvalidNumber(t *testing.T) {
 
 func TestParseSetupTextRejectsInvalidBoolValue(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"apenasAdmin=talvez"}, chat, nil)
+	err := ParseSetupText([]string{"apenasAdmin=talvez"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for non sim/nao value")
 	}
@@ -69,7 +69,7 @@ func TestParseSetupTextRejectsInvalidBoolValue(t *testing.T) {
 
 func TestParseSetupTextRejectsMultiCharPrefix(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"prefixo=ab"}, chat, nil)
+	err := ParseSetupText([]string{"prefixo=ab"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for a prefix longer than one character")
 	}
@@ -77,7 +77,7 @@ func TestParseSetupTextRejectsMultiCharPrefix(t *testing.T) {
 
 func TestParseSetupTextSetsFieldsBeforeFailing(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"prefixo=!", "chaveInvalida=sim"}, chat, nil)
+	err := ParseSetupText([]string{"prefixo=!", "chaveInvalida=sim"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error from the unknown key")
 	}
@@ -92,9 +92,7 @@ func TestGetHumanReadableSetup(t *testing.T) {
 		IsBotEnabled:           1,
 		AdminOnly:              0,
 		WarnBanThreshold:       3,
-		AllowGames:             1,
-		AllowAdults:            0,
-		AllowFun:               1,
+		DisabledCategories:     "rucoy",
 		CountMessages:          0,
 		ProfanityFilterEnabled: 1,
 		CustomProfanityWords:   "foo,bar",
@@ -106,16 +104,14 @@ func TestGetHumanReadableSetup(t *testing.T) {
 		BotStyle:               "seja formal",
 	}
 
-	got := GetHumanReadableSetup(chat)
+	got := GetHumanReadableSetup(chat, []string{"diversão", "rucoy"})
 
 	wantContains := []string{
 		"prefixo=!",
 		"ativarBot=sim",
 		"apenasAdmin=não",
 		"limiteDeAvisos=3",
-		"ativarGames=sim",
-		"ativarAdultos=não",
-		"ativarDiversao=sim",
+		"categoriasAtivas=diversão\n",
 		"contarMensagens=não",
 		"filtroDeProfanidade=sim",
 		"palavrasProibidas=foo,bar",
@@ -136,7 +132,7 @@ func TestGetHumanReadableSetup(t *testing.T) {
 
 func TestParseSetupTextBotStyle(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"estiloBot= Seja Formal ", "chaveInvalida=sim"}, chat, nil)
+	err := ParseSetupText([]string{"estiloBot= Seja Formal ", "chaveInvalida=sim"}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error from the unknown key")
 	}
@@ -147,8 +143,39 @@ func TestParseSetupTextBotStyle(t *testing.T) {
 
 func TestParseSetupTextRejectsLongBotStyle(t *testing.T) {
 	chat := &models.Chat{}
-	err := ParseSetupText([]string{"estiloBot=" + strings.Repeat("a", maxBotStyleLength+1)}, chat, nil)
+	err := ParseSetupText([]string{"estiloBot=" + strings.Repeat("a", maxBotStyleLength+1)}, chat, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for bot style over the limit")
+	}
+}
+
+func TestParseSetupTextActiveCategories(t *testing.T) {
+	chat := &models.Chat{}
+	categories := []string{"diversão", "rucoy", "test"}
+	err := ParseSetupText([]string{"categoriasAtivas=Diversão, test", "chaveInvalida=sim"}, chat, nil, categories)
+	if err == nil {
+		t.Fatal("expected error from the unknown key")
+	}
+	if chat.DisabledCategories != "rucoy" {
+		t.Errorf("DisabledCategories = %q, want %q", chat.DisabledCategories, "rucoy")
+	}
+}
+
+func TestParseSetupTextEmptyActiveCategoriesDisablesAll(t *testing.T) {
+	chat := &models.Chat{}
+	err := ParseSetupText([]string{"categoriasAtivas=", "chaveInvalida=sim"}, chat, nil, []string{"diversão", "rucoy"})
+	if err == nil {
+		t.Fatal("expected error from the unknown key")
+	}
+	if chat.DisabledCategories != "diversão,rucoy" {
+		t.Errorf("DisabledCategories = %q, want %q", chat.DisabledCategories, "diversão,rucoy")
+	}
+}
+
+func TestParseSetupTextRejectsUnknownCategory(t *testing.T) {
+	chat := &models.Chat{}
+	err := ParseSetupText([]string{"categoriasAtivas=diversão,admin"}, chat, nil, []string{"diversão", "rucoy"})
+	if err == nil {
+		t.Fatal("expected error for a category that can't be toggled")
 	}
 }

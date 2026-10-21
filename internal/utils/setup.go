@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -26,7 +27,32 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func ParseSetupText(args []string, chat *models.Chat, chatService *services.ChatService) error {
+func parseActiveCategories(value string, categories []string) (string, error) {
+	active := []string{}
+	for name := range strings.SplitSeq(value, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		index := slices.IndexFunc(categories, func(category string) bool {
+			return strings.EqualFold(category, name)
+		})
+		if index == -1 {
+			return "", fmt.Errorf("categoria não reconhecida: %s, categorias disponíveis: %s", name, strings.Join(categories, ","))
+		}
+		active = append(active, categories[index])
+	}
+
+	disabled := []string{}
+	for _, category := range categories {
+		if !slices.Contains(active, category) {
+			disabled = append(disabled, category)
+		}
+	}
+	return strings.Join(disabled, ","), nil
+}
+
+func ParseSetupText(args []string, chat *models.Chat, chatService *services.ChatService, categories []string) error {
 	for index, line := range args {
 		data := strings.Split(line, "=")
 		if len(data) != 2 {
@@ -70,21 +96,12 @@ func ParseSetupText(args []string, chat *models.Chat, chatService *services.Chat
 				return err
 			}
 			chat.CountMessages = boolToInt(value == "sim")
-		case "ativarGames":
-			if err := validateBool(value, index); err != nil {
+		case "categoriasAtivas":
+			disabled, err := parseActiveCategories(value, categories)
+			if err != nil {
 				return err
 			}
-			chat.AllowGames = boolToInt(value == "sim")
-		case "ativarDiversao":
-			if err := validateBool(value, index); err != nil {
-				return err
-			}
-			chat.AllowFun = boolToInt(value == "sim")
-		case "ativarAdultos":
-			if err := validateBool(value, index); err != nil {
-				return err
-			}
-			chat.AllowAdults = boolToInt(value == "sim")
+			chat.DisabledCategories = disabled
 		case "ativarQuote":
 			if err := validateBool(value, index); err != nil {
 				return err
@@ -127,15 +144,19 @@ func boolTHuman(b bool) string {
 	return "não"
 }
 
-func GetHumanReadableSetup(chat *models.Chat) string {
+func GetHumanReadableSetup(chat *models.Chat, categories []string) string {
+	active := []string{}
+	for _, category := range categories {
+		if !chat.IsCategoryDisabled(category) {
+			active = append(active, category)
+		}
+	}
 
 	message := fmt.Sprintf("prefixo=%s\n", chat.Prefix)
 	message += fmt.Sprintf("ativarBot=%s\n", boolTHuman(chat.IsBotEnabled == 1))
 	message += fmt.Sprintf("apenasAdmin=%s\n", boolTHuman(chat.AdminOnly == 1))
 	message += fmt.Sprintf("limiteDeAvisos=%d\n", chat.WarnBanThreshold)
-	message += fmt.Sprintf("ativarGames=%s\n", boolTHuman(chat.AllowGames == 1))
-	message += fmt.Sprintf("ativarAdultos=%s\n", boolTHuman(chat.AllowAdults == 1))
-	message += fmt.Sprintf("ativarDiversao=%s\n", boolTHuman(chat.AllowFun == 1))
+	message += fmt.Sprintf("categoriasAtivas=%s\n", strings.Join(active, ","))
 	message += fmt.Sprintf("contarMensagens=%s\n", boolTHuman(chat.CountMessages == 1))
 	message += fmt.Sprintf("filtroDeProfanidade=%s\n", boolTHuman(chat.ProfanityFilterEnabled == 1))
 	message += fmt.Sprintf("palavrasProibidas=%s\n", chat.CustomProfanityWords)

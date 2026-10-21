@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
@@ -19,12 +20,12 @@ import (
 func Setup(m *messages.Message) {
 
 	if len(*m.Args) < 1 {
-		config := utils.GetHumanReadableSetup(m.Chat)
+		config := utils.GetHumanReadableSetup(m.Chat, commands.GetToggleableCategories())
 		m.Reply(config, emojis.Success)
 		return
 	}
 
-	err := utils.ParseSetupText(*m.Args, m.Chat, m.Bot.DB.Chat)
+	err := utils.ParseSetupText(*m.Args, m.Chat, m.Bot.DB.Chat, commands.GetToggleableCategories())
 	if err != nil {
 		m.Reply(err.Error(), emojis.Fail)
 		return

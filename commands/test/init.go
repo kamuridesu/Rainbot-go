@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	commands.NewCommand("test", "", TestCategory, nil, nil, false, false, false, func(m *messages.Message) {
+	commands.NewCommand("test", "", TestCategory, nil, nil, func(m *messages.Message) {
 		fmt.Println("rcvd test command")
 		c := chatter.New(m.Bot.DB.AIModel)
 		fmt.Println("chatter instantiated")

@@ -21,9 +21,6 @@ func init() {
 		AdminCategory,
 		&[]string{"config"},
 		&[]string{"${prefix}${alias}\nprefixo=!"},
-		false,
-		false,
-		false,
 		Setup,
 		commands.IsAdmin,
 	)
@@ -34,9 +31,6 @@ func init() {
 		AdminCategory,
 		&[]string{"avisar"},
 		&[]string{"${prefix}${alias} @user"},
-		false,
-		false,
-		false,
 		WarnUser,
 		commands.IsAdmin,
 		commands.IsBotAdmin,
@@ -49,9 +43,6 @@ func init() {
 		AdminCategory,
 		&[]string{"rwarn"},
 		&[]string{"${prefix}${alias} @user"},
-		false,
-		false,
-		false,
 		RemoveUserWarn,
 		commands.IsAdmin,
 		commands.HasMentionedMembers,
@@ -63,9 +54,6 @@ func init() {
 		AdminCategory,
 		&[]string{"banir"},
 		&[]string{"${prefix}${alias} @user"},
-		false,
-		false,
-		false,
 		BanUser,
 		commands.IsAdmin,
 		commands.IsBotAdmin,
@@ -78,9 +66,6 @@ func init() {
 		AdminCategory,
 		&[]string{"all"},
 		&[]string{"${prefix}${alias} aoba"},
-		false,
-		false,
-		false,
 		MentionMembers,
 		commands.IsAdmin,
 	)
@@ -91,9 +76,6 @@ func init() {
 		AdminCategory,
 		&[]string{"promote"},
 		&[]string{"${prefix}${alias} @user"},
-		false,
-		false,
-		false,
 		func(m *messages.Message) {
 			err := changeUserAdminStatus(m)
 			if err != nil {
@@ -113,9 +95,6 @@ func init() {
 		AdminCategory,
 		&[]string{"demote"},
 		&[]string{"${prefix}${alias} @user"},
-		false,
-		false,
-		false,
 		func(m *messages.Message) {
 			err := changeUserAdminStatus(m, true)
 			if err != nil {
@@ -135,7 +114,7 @@ func init() {
 		&[]string{
 			"${prefix}${alias} zero mostra membros com 0 mensgens",
 			"${prefix}${alias} limpar limpa as mensagens do grupo",
-			"${prefix}${alias} mostra as mensagens por membro"}, false, false, false, func(m *messages.Message) {
+			"${prefix}${alias} mostra as mensagens por membro"}, func(m *messages.Message) {
 			if m.Args != nil && len(*m.Args) > 0 {
 				text := strings.Join(*m.Args, " ")
 				switch text {
@@ -160,7 +139,7 @@ func init() {
 
 	commands.NewCommand("mute",
 		"Silencia membros mencionados", AdminCategory, nil, &[]string{"${prefix}${alias} @user"},
-		false, false, false, MuteMember,
+		MuteMember,
 		commands.HasMentionedMembers,
 		commands.IsGroup,
 		commands.IsAdmin,
@@ -168,13 +147,12 @@ func init() {
 	)
 
 	commands.NewCommand("unmute", "Deixa os membros falarem novamente", AdminCategory, &[]string{"um"}, &[]string{"${prefix}${alias} @user"},
-		false, false, false,
 		UnmuteMember,
 		commands.HasMentionedMembers, commands.IsGroup, commands.IsAdmin)
 
-	commands.NewCommand("bug", "Reporta um bug", commands.MiscCategory, nil, nil, false, false, false, Bug, commands.HasArgs(1))
+	commands.NewCommand("bug", "Reporta um bug", commands.MiscCategory, nil, nil, Bug, commands.HasArgs(1))
 	commands.NewCommand("transmitir",
 		"Transmite uma mensagem",
-		commands.MiscCategory, &[]string{"bc", "broadcast"}, nil, false, false, false, Broadcast, commands.HasArgs(2))
+		commands.MiscCategory, &[]string{"bc", "broadcast"}, nil, Broadcast, commands.HasArgs(2))
 
 }
