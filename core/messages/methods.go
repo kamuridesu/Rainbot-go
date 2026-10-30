@@ -41,7 +41,9 @@ func (m *Message) Reply(content string, reaction ...emojis.Emoji) (*whatsmeow.Se
 		},
 	}
 
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, msg)
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.SendMessage(ctx, m.RawEvent.Info.Chat, msg)
 	return &resp, err
 }
 
@@ -61,13 +63,17 @@ func (m *Message) ReplySticker(content []byte, _type MessageType, reaction ...em
 
 func (m *Message) React(emoji emojis.Emoji) (*whatsmeow.SendResponse, error) {
 	reactionMsg := m.Bot.Client.BuildReaction(m.RawEvent.Info.Chat, m.RawEvent.Info.Sender, m.RawEvent.Info.ID, string(emoji))
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, reactionMsg)
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.SendMessage(ctx, m.RawEvent.Info.Chat, reactionMsg)
 	return &resp, err
 }
 
 func (m *Message) Delete() (*whatsmeow.SendResponse, error) {
 	revokeMsg := m.Bot.Client.BuildRevoke(m.RawEvent.Info.Chat, m.RawEvent.Info.Sender, m.RawEvent.Info.ID)
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, revokeMsg)
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.SendMessage(ctx, m.RawEvent.Info.Chat, revokeMsg)
 	return &resp, err
 }
 
@@ -75,7 +81,9 @@ func (m *Message) Edit(content string) (*whatsmeow.SendResponse, error) {
 	editMsg := m.Bot.Client.BuildEdit(m.RawEvent.Info.Chat, m.RawEvent.Info.ID, &waE2E.Message{
 		Conversation: proto.String(content),
 	})
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, editMsg)
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.SendMessage(ctx, m.RawEvent.Info.Chat, editMsg)
 	return &resp, err
 }
 
@@ -84,7 +92,9 @@ func (m *Message) IsFromGroup() bool {
 }
 
 func (m *Message) SendMessage(msg *waE2E.Message, chatId types.JID) (*whatsmeow.SendResponse, error) {
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, chatId, msg)
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.SendMessage(ctx, chatId, msg)
 	return &resp, err
 }
 

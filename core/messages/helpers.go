@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/internal/bot"
@@ -166,9 +167,24 @@ func parseCommandArgs(text, prefix string) (*string, *[]string) {
 	return nil, nil
 }
 
+const (
+	sendTimeout   = 30 * time.Second
+	uploadTimeout = 2 * time.Minute
+)
+
+func (m *Message) botContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	parent := m.rootCtx
+	if parent == nil {
+		parent = context.WithoutCancel(m.Ctx)
+	}
+	return context.WithTimeout(parent, timeout)
+}
+
 func (m *Message) uploadMedia(content []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 	slog.Info(fmt.Sprintf("Uploading %s", mediaType))
-	resp, err := m.Bot.Client.Upload(m.Ctx, content, mediaType)
+	ctx, cancel := m.botContext(uploadTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.Upload(ctx, content, mediaType)
 	if err != nil {
 		slog.Error("Error uploading media", "type", mediaType, "error", err)
 		return whatsmeow.UploadResponse{}, err
@@ -179,7 +195,9 @@ func (m *Message) uploadMedia(content []byte, mediaType whatsmeow.MediaType) (wh
 
 func (m *Message) sendAndLog(chatId types.JID, msg *waE2E.Message, mediaType string) (*whatsmeow.SendResponse, error) {
 	slog.Info(fmt.Sprintf("Sending %s message", mediaType))
-	resp, err := m.Bot.Client.SendMessage(m.Ctx, chatId, msg)
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.SendMessage(ctx, chatId, msg)
 	if err != nil {
 		slog.Error("Failed to send message", "type", mediaType, "error", err)
 		return nil, err

@@ -17,7 +17,7 @@ func init() {
 
 	commands.NewCommand(
 		"setup",
-		"Configura o bot",
+		"Configura o bot a partir de uma lista de opções",
 		AdminCategory,
 		&[]string{"config"},
 		&[]string{"${prefix}${alias}\nprefixo=!"},

@@ -11,7 +11,7 @@ func DeleteIfMuted(m *messages.Message) bool {
 	if m.Author.Silenced == 1 {
 
 		msg := m.Bot.Client.BuildRevoke(m.RawEvent.Info.Chat, m.RawEvent.Info.Sender, m.RawEvent.Info.ID)
-		_, err := m.Bot.Client.SendMessage(m.Ctx, m.RawEvent.Info.Chat, msg)
+		_, err := m.SendMessage(msg, m.RawEvent.Info.Chat)
 		if err != nil {
 			slog.Error("Error while deleting message: " + err.Error())
 		}

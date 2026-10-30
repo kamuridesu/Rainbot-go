@@ -29,6 +29,7 @@ const (
 
 type Message struct {
 	Ctx              context.Context
+	rootCtx          context.Context
 	Bot              *bot.Bot
 	Args             *[]string
 	RawEvent         *events.Message
@@ -57,7 +58,7 @@ func deduplicateMentions(mentions []string) []string {
 	return tmp
 }
 
-func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMessage *waE2E.Message) (*Message, error) {
+func newMessage(rootCtx, ctx context.Context, bot *bot.Bot, v *events.Message, quotedMessage *waE2E.Message) (*Message, error) {
 	chatJID := v.Info.Chat.String()
 
 	chat, member, filters, err := fetchMessageContext(bot, chatJID, getAuthorJID(v))
@@ -74,6 +75,7 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 
 	message := &Message{
 		Ctx:        ctx,
+		rootCtx:    rootCtx,
 		Bot:        bot,
 		RawEvent:   v,
 		RawMessage: rawMsg,
@@ -85,7 +87,7 @@ func newMessage(ctx context.Context, bot *bot.Bot, v *events.Message, quotedMess
 	}
 
 	if nextQuotedMsg != nil && quotedMessage == nil {
-		message.QuotedMessage, err = newMessage(ctx, bot, v, nextQuotedMsg)
+		message.QuotedMessage, err = newMessage(rootCtx, ctx, bot, v, nextQuotedMsg)
 		if err != nil {
 			slog.Error("Error parsing quoted message", "err", err)
 			return nil, err
@@ -136,10 +138,10 @@ func (h *Handler) Handle(event any) {
 		}
 
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			ctx, cancel := context.WithTimeout(h.Ctx, 60*time.Second)
 			defer cancel()
 
-			message, err := newMessage(ctx, h.Bot, v, nil)
+			message, err := newMessage(h.Ctx, ctx, h.Bot, v, nil)
 			if err != nil {
 				slog.Error("error parsing message, err is: " + err.Error())
 				return
@@ -238,7 +240,7 @@ func (h *Handler) Handle(event any) {
 		}
 		if len(v.Join) > 0 {
 			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				ctx, cancel := context.WithTimeout(h.Ctx, 15*time.Second)
 				defer cancel()
 				chatInfo, err := h.Bot.DB.Chat.GetOrCreateChat(v.JID.String())
 				if err != nil {
@@ -267,7 +269,7 @@ func (h *Handler) Handle(event any) {
 }
 
 func (h *Handler) updateMembersLeft(v *events.GroupInfo) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(h.Ctx, 15*time.Second)
 	defer cancel()
 
 	chatJID := v.JID.String()

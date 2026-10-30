@@ -59,22 +59,17 @@ func TestDownloadVideoError(t *testing.T) {
 	}
 }
 
-func TestDownloadAudioConversionError(t *testing.T) {
-	withCobaltServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/file" {
-			w.Write([]byte("not-real-audio-bytes"))
-			return
-		}
-		fmt.Fprintf(w, `{"status":"tunnel","url":"http://%s/file","filename":"audio.ogg"}`, r.Host)
-	})
-
+func TestDownloadAudioNotImplemented(t *testing.T) {
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, newTestDB(t))
 	*m.Args = []string{"https://example.com/audio"}
 
 	DownloadAudio(m)
 
-	if len(fake.SentMessages) != 3 {
-		t.Fatalf("expected 3 sent messages (waiting + fail reaction + error reply), got %d", len(fake.SentMessages))
+	if len(fake.SentMessages) != 2 {
+		t.Fatalf("expected 2 sent messages (fail reaction + not implemented reply), got %d", len(fake.SentMessages))
+	}
+	if got := fake.SentMessages[1].Message.GetExtendedTextMessage().GetText(); got != "Não implementado" {
+		t.Errorf("reply = %q, want %q", got, "Não implementado")
 	}
 }

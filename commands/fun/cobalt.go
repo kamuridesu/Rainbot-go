@@ -24,6 +24,10 @@ func DownloadVideo(m *messages.Message) {
 }
 
 func DownloadAudio(m *messages.Message) {
+
+	m.Reply("Não implementado", emojis.Fail)
+	return
+
 	args := strings.Join(*m.Args, " ")
 	m.React(emojis.Waiting)
 	res, err := media.DownloadMediaCobalt(m.Ctx, args, media.MediaAudio, 360)

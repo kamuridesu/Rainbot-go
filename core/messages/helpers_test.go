@@ -1,8 +1,10 @@
 package messages
 
 import (
+	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
@@ -290,4 +292,40 @@ func TestGetAuthorJID(t *testing.T) {
 		}
 		getAuthorJID(v)
 	})
+}
+
+func TestBotContextSurvivesExpiredWorkContext(t *testing.T) {
+	workCtx, cancel := context.WithTimeout(context.Background(), 0)
+	defer cancel()
+	<-workCtx.Done()
+
+	m := &Message{Ctx: workCtx}
+	ctx, cancelBot := m.botContext(sendTimeout)
+	defer cancelBot()
+
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("botContext err = %v, want nil", err)
+	}
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		t.Fatal("botContext has no deadline")
+	}
+	if remaining := time.Until(deadline); remaining <= sendTimeout-time.Second || remaining > sendTimeout {
+		t.Errorf("remaining = %v, want about %v", remaining, sendTimeout)
+	}
+}
+
+func TestBotContextCancelledWithRoot(t *testing.T) {
+	rootCtx, cancelRoot := context.WithCancel(context.Background())
+	cancelRoot()
+
+	m := &Message{Ctx: context.Background(), rootCtx: rootCtx}
+	ctx, cancel := m.botContext(sendTimeout)
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+	default:
+		t.Fatal("botContext not done after root context was cancelled")
+	}
 }

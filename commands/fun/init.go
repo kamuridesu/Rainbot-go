@@ -16,7 +16,7 @@ var (
 func init() {
 	commands.NewCommand(
 		"slot",
-		"Teste sua sorte",
+		"Teste sua sorte em um jogo de azar",
 		DiversaoCategory,
 		nil,
 		nil,
@@ -50,7 +50,7 @@ func init() {
 
 	commands.NewCommand(
 		"sticker",
-		"Cria um sticker",
+		"Cria um sticker. Envie como descrição na imagem ou mencione uma imagem ou vídeo",
 		DiversaoCategory,
 		&[]string{"fig", "s", "figu"},
 		nil,
@@ -102,7 +102,7 @@ func init() {
 	commands.NewCommand("gay", "Diz o seu nivel de gay", DiversaoCategory, nil, nil, Gay)
 
 	commands.NewCommand("lyrics",
-		"Envia a letra de alguma música",
+		"Envia a letra de alguma música a partir do resultado do letras.mus.br",
 		DiversaoCategory,
 		&[]string{"letras"},
 		&[]string{"${prefix}${alias} never gonna give you up"},
@@ -117,11 +117,18 @@ func init() {
 		},
 	)
 
-	commands.NewCommand("video", "Baixa um video", DiversaoCategory, nil, nil, DownloadVideo, commands.HasArgs(1, true))
+	commands.NewCommand("video",
+		"Baixa um video (atualmente apenas Instagram e X (twitter) são suportados)",
+		DiversaoCategory,
+		&[]string{"vídeo"},
+		&[]string{"${prefix}${alias} link-do-video"},
+		DownloadVideo, commands.HasArgs(1, true),
+	)
+
 	commands.NewCommand("music", "Baixa uma musica", DiversaoCategory, nil, nil, DownloadAudio, commands.HasArgs(1, true))
 
 	commands.NewCommand("quotly",
-		"gera um quote",
+		"Gera um quote a partir da menção de uma mensagem de um usuário",
 		DiversaoCategory,
 		&[]string{"q"},
 		nil,
@@ -130,7 +137,7 @@ func init() {
 	)
 
 	commands.NewCommand("randomquotly",
-		"envia um quote aleatorio",
+		"Envia um quote aleatorio",
 		DiversaoCategory,
 		&[]string{"qrand"},
 		nil,

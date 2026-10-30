@@ -55,7 +55,8 @@ func main() {
 		slog.Error(fmt.Sprintf("failed to load AI model usage: %v", err))
 	}
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	slog.Info(fmt.Sprintf("Found %d commands", len(*commands.GetLoadedCommands())))
 
@@ -76,9 +77,6 @@ func main() {
 
 	cleanup.New(singleton.Chat, singleton.Member, singleton.Filter, singleton.Quotly, storage.NewStorage()).Start(ctx, time.Hour)
 
-	// Listen to Ctrl+C (you can also do something else that prevents the program from exiting)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
+	<-ctx.Done()
 
 }
