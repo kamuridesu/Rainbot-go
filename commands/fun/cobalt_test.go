@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/kamuridesu/rainbot-go/core/modules/media"
 	"github.com/kamuridesu/rainbot-go/internal/bot/botfakes"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 func withCobaltServer(t *testing.T, handler http.HandlerFunc) {
@@ -15,10 +15,13 @@ func withCobaltServer(t *testing.T, handler http.HandlerFunc) {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	origURL, origKey := media.CobaltUrl, media.CobaltApiKey
-	media.CobaltUrl, media.CobaltApiKey = server.URL, "test-key"
-	t.Cleanup(func() {
-		media.CobaltUrl, media.CobaltApiKey = origURL, origKey
+	withCobaltConfig(t, server.URL, "test-key")
+}
+
+func withCobaltConfig(t *testing.T, url, apiKey string) {
+	t.Helper()
+	configs.Override(t, func(c *configs.Config) {
+		c.Cobalt = configs.Cobalt{Url: url, ApiKey: apiKey}
 	})
 }
 
@@ -50,7 +53,7 @@ func TestDownloadVideoError(t *testing.T) {
 	m := newTestMessage(t, fake, newTestDB(t))
 	*m.Args = []string{"https://example.com/video"}
 
-	media.CobaltUrl, media.CobaltApiKey = "", ""
+	withCobaltConfig(t, "", "")
 
 	DownloadVideo(m)
 

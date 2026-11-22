@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"math/rand/v2"
-	"os"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -30,11 +31,10 @@ const (
 )
 
 func NewStorage() FileStorage {
-	storageType := os.Getenv("STORAGE_TYPE")
-	switch storageType {
-	case "LOCAL":
+	switch configs.Get().Storage.Type {
+	case configs.StorageLocal:
 		return NewLocalFileStorage()
-	case "S3":
+	case configs.StorageS3:
 		return NewS3FileStorage()
 	default:
 		return NewLocalFileStorage()

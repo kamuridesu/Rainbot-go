@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -56,7 +56,7 @@ func Bug(m *messages.Message) {
 }
 
 func Broadcast(m *messages.Message) {
-	bcPasswd := os.Getenv("BROADCAST_PASSWORD")
+	bcPasswd := configs.Get().Bot.BroadcastPassword
 	if bcPasswd == "" {
 		m.Reply("Nenhuma senha configurada.", emojis.Fail)
 		return

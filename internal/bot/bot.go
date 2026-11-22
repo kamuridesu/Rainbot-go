@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
@@ -68,7 +69,7 @@ func New(ctx context.Context, name, sqlDialact, dbAddress string, handler Handle
 			return nil, err
 		}
 	}
-	tmpc := os.Getenv("CREATOR_NUMBER")
+	tmpc := configs.Get().Bot.OwnerNumber
 	creatorN := &tmpc
 	if tmpc == "" {
 		creatorN = nil

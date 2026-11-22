@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kamuridesu/rainbot-go/internal/bot/botfakes"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
@@ -121,7 +122,7 @@ func TestBugSendError(t *testing.T) {
 }
 
 func TestBroadcastMissingPasswordConfig(t *testing.T) {
-	t.Setenv("BROADCAST_PASSWORD", "")
+	configs.Override(t, func(c *configs.Config) { c.Bot.BroadcastPassword = "" })
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, newTestDB(t))
 	*m.Args = []string{"whatever", "message here"}
@@ -138,7 +139,7 @@ func TestBroadcastMissingPasswordConfig(t *testing.T) {
 }
 
 func TestBroadcastWrongPassword(t *testing.T) {
-	t.Setenv("BROADCAST_PASSWORD", "correct-password")
+	configs.Override(t, func(c *configs.Config) { c.Bot.BroadcastPassword = "correct-password" })
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, newTestDB(t))
 	*m.Args = []string{"wrong-password", "message here"}
@@ -152,7 +153,7 @@ func TestBroadcastWrongPassword(t *testing.T) {
 }
 
 func TestBroadcastGetJoinedGroupsError(t *testing.T) {
-	t.Setenv("BROADCAST_PASSWORD", "correct-password")
+	configs.Override(t, func(c *configs.Config) { c.Bot.BroadcastPassword = "correct-password" })
 	wantErr := errors.New("network error")
 	fake := &botfakes.FakeClient{
 		GetJoinedGroupsFunc: func(ctx context.Context) ([]*types.GroupInfo, error) { return nil, wantErr },
@@ -169,7 +170,7 @@ func TestBroadcastGetJoinedGroupsError(t *testing.T) {
 }
 
 func TestBroadcastSuccessReportsGroupCount(t *testing.T) {
-	t.Setenv("BROADCAST_PASSWORD", "correct-password")
+	configs.Override(t, func(c *configs.Config) { c.Bot.BroadcastPassword = "correct-password" })
 	fake := &botfakes.FakeClient{
 		GetJoinedGroupsFunc: func(ctx context.Context) ([]*types.GroupInfo, error) {
 			return []*types.GroupInfo{

@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 func withCobaltConfig(t *testing.T, url, apiKey string) {
 	t.Helper()
-	origURL, origKey := CobaltUrl, CobaltApiKey
-	CobaltUrl, CobaltApiKey = url, apiKey
-	t.Cleanup(func() {
-		CobaltUrl, CobaltApiKey = origURL, origKey
+	configs.Override(t, func(c *configs.Config) {
+		c.Cobalt = configs.Cobalt{Url: url, ApiKey: apiKey}
 	})
 }
 

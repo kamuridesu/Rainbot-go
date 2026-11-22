@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 func TestGenerateMissingApiUrl(t *testing.T) {
-	t.Setenv("QUOTLY_API_URL", "")
+	configs.Override(t, func(c *configs.Config) { c.Bot.QuotlyUrl = "" })
 
 	if _, err := Generate(context.Background(), DefaultTemplate); err == nil {
 		t.Error("expected an error when QUOTLY_API_URL is unset")
@@ -28,7 +30,7 @@ func TestGenerateSuccess(t *testing.T) {
 		fmt.Fprintf(w, `{"ok":true,"result":{"image":%q,"width":512,"height":768}}`, encoded)
 	}))
 	defer server.Close()
-	t.Setenv("QUOTLY_API_URL", server.URL)
+	configs.Override(t, func(c *configs.Config) { c.Bot.QuotlyUrl = server.URL })
 
 	got, err := Generate(context.Background(), DefaultTemplate)
 	if err != nil {
@@ -45,7 +47,7 @@ func TestGenerateNon200Status(t *testing.T) {
 		fmt.Fprint(w, `{"error":"bad request"}`)
 	}))
 	defer server.Close()
-	t.Setenv("QUOTLY_API_URL", server.URL)
+	configs.Override(t, func(c *configs.Config) { c.Bot.QuotlyUrl = server.URL })
 
 	if _, err := Generate(context.Background(), DefaultTemplate); err == nil {
 		t.Error("expected an error for a non-200 response")
@@ -57,7 +59,7 @@ func TestGenerateInvalidJSON(t *testing.T) {
 		fmt.Fprint(w, `not json`)
 	}))
 	defer server.Close()
-	t.Setenv("QUOTLY_API_URL", server.URL)
+	configs.Override(t, func(c *configs.Config) { c.Bot.QuotlyUrl = server.URL })
 
 	if _, err := Generate(context.Background(), DefaultTemplate); err == nil {
 		t.Error("expected an error for an invalid JSON response")

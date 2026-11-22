@@ -9,9 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"slices"
 	"strconv"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 type CobaltErrorContext struct {
@@ -70,17 +71,16 @@ type CobaltRequestBody struct {
 }
 
 var (
-	CobaltUrl        = os.Getenv("COBALT_URL")
-	CobaltApiKey     = os.Getenv("COBALT_API_KEY")
 	ErrInvalidApiKey = errors.New("invalid cobalt api key")
 	ErrInvalidUrl    = errors.New("invalid cobalt url")
 )
 
 func isCobaltAvailable() error {
-	if CobaltApiKey == "" {
+	cobalt := configs.Get().Cobalt
+	if cobalt.ApiKey == "" {
 		return ErrInvalidApiKey
 	}
-	if CobaltUrl == "" {
+	if cobalt.Url == "" {
 		return ErrInvalidUrl
 	}
 	return nil
@@ -120,7 +120,7 @@ func GetCobaltStreamUrl(ctx context.Context, mediaUrl string, mediaType MediaTyp
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", CobaltUrl, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", configs.Get().Cobalt.Url, bytes.NewReader(reqBody))
 	if err != nil {
 		slog.Error(err.Error())
 		return nil, err
@@ -128,7 +128,7 @@ func GetCobaltStreamUrl(ctx context.Context, mediaUrl string, mediaType MediaTyp
 
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Api-Key "+CobaltApiKey)
+	req.Header.Add("Authorization", "Api-Key "+configs.Get().Cobalt.ApiKey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

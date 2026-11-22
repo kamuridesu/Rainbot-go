@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -19,6 +18,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/core/modules/chatter"
 	"github.com/kamuridesu/rainbot-go/core/modules/cleanup"
 	b "github.com/kamuridesu/rainbot-go/internal/bot"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
 
@@ -30,6 +30,11 @@ import (
 
 func init() {
 	utils.ReadDotEnv()
+
+	if err := configs.Get().Validate(); err != nil {
+		slog.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 
 	slog.Info("Starting migrations...")
 	utils.Migrate()
@@ -45,7 +50,9 @@ func main() {
 		}
 	}()
 
-	singleton, err := database.InitDatabaseSingleton(os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"), true)
+	cfg := configs.Get()
+
+	singleton, err := database.InitDatabaseSingleton(cfg.DB.Driver, cfg.DB.Params, true)
 	if err != nil {
 		panic(err)
 	}
@@ -61,9 +68,7 @@ func main() {
 	slog.Info(fmt.Sprintf("Found %d commands", len(*commands.GetLoadedCommands())))
 
 	handler := messages.NewHandler(ctx, commands.RunCommand, chat.ChatHandler)
-	botName := cmp.Or(os.Getenv("BOT_NAME"), "teto")
-
-	bot, err := b.New(ctx, botName, os.Getenv("DB_DRIVER"), os.Getenv("DB_PARAMS"), handler, singleton)
+	bot, err := b.New(ctx, cfg.Bot.Name, cfg.DB.Driver, cfg.DB.Params, handler, singleton)
 	if err != nil {
 		panic(err)
 	}

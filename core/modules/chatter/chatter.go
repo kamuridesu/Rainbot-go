@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/kamuridesu/rainbot-go/core/commands"
 	"github.com/kamuridesu/rainbot-go/core/services"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
@@ -77,10 +77,11 @@ comandos:
 }
 
 func New(usage *services.AIModelUsageService) *Chatter {
+	ai := configs.Get().AI
 	opts := []option.RequestOption{
-		option.WithAPIKey(os.Getenv("AI_MODEL_KEY")),
+		option.WithAPIKey(ai.ModelKey),
 	}
-	openAiUrl := os.Getenv("AI_MODEL_URL")
+	openAiUrl := ai.ModelUrl
 	if openAiUrl != "" {
 		slog.Info(fmt.Sprintf("Using %s AI Provider URL", openAiUrl))
 		opts = append(opts, option.WithBaseURL(openAiUrl))

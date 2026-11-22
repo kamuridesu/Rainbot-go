@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 func TestRandomFilename(t *testing.T) {
@@ -44,7 +46,7 @@ func TestFileDefaultModeIsWrite(t *testing.T) {
 
 func TestFileWriteReadDeleteExistsRoundTrip(t *testing.T) {
 	ctx := context.Background()
-	t.Setenv("STORAGE_TYPE", "LOCAL")
+	configs.Override(t, func(c *configs.Config) { c.Storage.Type = configs.StorageLocal })
 
 	path := filepath.Join(t.TempDir(), "test-file.txt")
 	f := NewFile(path)
@@ -83,7 +85,7 @@ func TestFileWriteReadDeleteExistsRoundTrip(t *testing.T) {
 
 func TestFileWriteReadOnlyModeRejected(t *testing.T) {
 	ctx := context.Background()
-	t.Setenv("STORAGE_TYPE", "LOCAL")
+	configs.Override(t, func(c *configs.Config) { c.Storage.Type = configs.StorageLocal })
 
 	path := filepath.Join(t.TempDir(), "test-file.txt")
 	f := NewFile(path, ModeReadOnly)
@@ -95,7 +97,7 @@ func TestFileWriteReadOnlyModeRejected(t *testing.T) {
 
 func TestFileWriteAppendModeConcatenates(t *testing.T) {
 	ctx := context.Background()
-	t.Setenv("STORAGE_TYPE", "LOCAL")
+	configs.Override(t, func(c *configs.Config) { c.Storage.Type = configs.StorageLocal })
 
 	path := filepath.Join(t.TempDir(), "test-file.txt")
 
@@ -120,7 +122,7 @@ func TestFileWriteAppendModeConcatenates(t *testing.T) {
 
 func TestFileWriteStringWrapsWrite(t *testing.T) {
 	ctx := context.Background()
-	t.Setenv("STORAGE_TYPE", "LOCAL")
+	configs.Override(t, func(c *configs.Config) { c.Storage.Type = configs.StorageLocal })
 
 	path := filepath.Join(t.TempDir(), "test-file.txt")
 	f := NewFile(path)
@@ -140,7 +142,7 @@ func TestFileWriteStringWrapsWrite(t *testing.T) {
 
 func TestFileReadNonexistentReturnsNotExistsWithoutTouchingStorage(t *testing.T) {
 	ctx := context.Background()
-	t.Setenv("STORAGE_TYPE", "LOCAL")
+	configs.Override(t, func(c *configs.Config) { c.Storage.Type = configs.StorageLocal })
 
 	path := filepath.Join(t.TempDir(), "does-not-exist.txt")
 	f := NewFile(path, ModeReadOnly)

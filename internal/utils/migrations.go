@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/kamuridesu/rainbot-go/core/database/providers"
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 func LoadScripts(dir string) ([]os.DirEntry, error) {
@@ -128,13 +129,8 @@ func MigratePostgres(db *providers.Database) error {
 }
 
 func Migrate() {
-	dbDriver := os.Getenv("DB_DRIVER")
-	dbParams := os.Getenv("DB_PARAMS")
-
-	if dbDriver == "" || dbParams == "" {
-		slog.Error("DB_DRIVER and DB_PARAMS environment variables cannot be empty")
-		os.Exit(1)
-	}
+	dbDriver := configs.Get().DB.Driver
+	dbParams := configs.Get().DB.Params
 
 	db, err := providers.InitDB(dbDriver, dbParams)
 	if err != nil {

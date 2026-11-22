@@ -10,11 +10,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 func Generate(ctx context.Context, body_ QuotlyRequestBody) ([]byte, error) {
-	quotlyApiUrl := os.Getenv("QUOTLY_API_URL")
+	quotlyApiUrl := configs.Get().Bot.QuotlyUrl
 	if quotlyApiUrl == "" {
 		return nil, errors.New("Variable `QUOTLY_API_URL` not set")
 	}

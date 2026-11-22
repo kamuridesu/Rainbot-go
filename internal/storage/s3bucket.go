@@ -2,17 +2,17 @@ package storage
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"errors"
 	"io"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+
+	"github.com/kamuridesu/rainbot-go/internal/configs"
 )
 
 type S3FileStorage struct {
@@ -23,7 +23,8 @@ type S3FileStorage struct {
 var _s3Singleton *S3FileStorage
 
 func NewS3FileStorage() FileStorage {
-	bucket := os.Getenv("S3_BUCKET_NAME")
+	awsCfg := configs.Get().Storage.Aws
+	bucket := awsCfg.BucketName
 	if bucket == "" {
 		panic("Environment variable S3_BUCKET_NAME not set")
 	}
@@ -31,14 +32,12 @@ func NewS3FileStorage() FileStorage {
 		return _s3Singleton
 	}
 
-	region := cmp.Or(os.Getenv("AWS_REGION"), "us-west-2")
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(awsCfg.Region))
 	if err != nil {
 		panic(err)
 	}
 	svc := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		if endpoint := os.Getenv("AWS_ENDPOINT_URL"); endpoint != "" {
+		if endpoint := awsCfg.EndpointUrl; endpoint != "" {
 			o.BaseEndpoint = aws.String(endpoint)
 			o.UsePathStyle = true
 		}

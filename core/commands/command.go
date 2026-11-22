@@ -270,7 +270,7 @@ func RunCommand(msg *m.Message) {
 
 	cmd, err := FindCommand(*msg.Command)
 	if err != nil {
-		fmt.Println(err)
+		slog.Error("find command error", "error", err)
 		return
 	}
 
