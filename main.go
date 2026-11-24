@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,9 +32,15 @@ import (
 func init() {
 	utils.ReadDotEnv()
 
-	if err := configs.Get().Validate(); err != nil {
-		slog.Error("invalid configuration", "error", err)
+	cfg := configs.Get()
+	if err := cfg.Validate(); err != nil {
+		for _, e := range strings.Split(err.Error(), "\n") {
+			slog.Error("invalid configuration", "error", e)
+		}
 		os.Exit(1)
+	}
+	for _, w := range cfg.Warnings() {
+		slog.Warn("optional configuration missing", "detail", w)
 	}
 
 	slog.Info("Starting migrations...")

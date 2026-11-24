@@ -2,6 +2,7 @@ package messages
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -49,15 +50,55 @@ func fetchMember(bot *bot.Bot, chatJID, authorJID string) (*models.Member, error
 	return member, nil
 }
 
-func getAuthorJID(v *events.Message) string {
-	authorJid := v.Info.Sender.ToNonAD().String()
-	if !strings.Contains(authorJid, "@lid") {
-		authorJid = v.Info.SenderAlt.ToNonAD().String()
-		if !strings.Contains(authorJid, "@lid") {
-			panic("User id is not lid: " + authorJid)
+type lidResolver func(ctx context.Context, pn types.JID) (types.JID, error)
+
+var ErrNoLID = errors.New("message sender has no LID")
+
+func getAuthorJID(ctx context.Context, v *events.Message, resolve lidResolver) (string, error) {
+	for _, jid := range []types.JID{v.Info.Sender, v.Info.SenderAlt} {
+		if jid.Server == types.HiddenUserServer {
+			return jid.ToNonAD().String(), nil
 		}
 	}
-	return authorJid
+
+	if resolve != nil {
+		for _, jid := range []types.JID{v.Info.Sender, v.Info.SenderAlt} {
+			if jid.Server != types.DefaultUserServer {
+				continue
+			}
+			lid, err := resolve(ctx, jid.ToNonAD())
+			if err != nil {
+				slog.Warn("Failed to resolve LID for sender", "pn", jid.ToNonAD().String(), "err", err)
+				continue
+			}
+			if !lid.IsEmpty() {
+				return lid.ToNonAD().String(), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("%w: sender=%q senderAlt=%q id=%s", ErrNoLID, v.Info.Sender, v.Info.SenderAlt, v.Info.ID)
+}
+
+func storeLIDResolver(b *bot.Bot) lidResolver {
+	if b == nil || b.Client == nil {
+		return nil
+	}
+	device := b.Client.Store()
+	if device == nil || device.LIDs == nil {
+		return nil
+	}
+	return device.LIDs.GetLIDForPN
+}
+
+func unwrapQuoted(msg *waE2E.Message) *waE2E.Message {
+	if inner := msg.GetAudioStickerMessage().GetMessage(); inner != nil {
+		return inner
+	}
+	if inner := msg.GetLottieStickerMessage().GetMessage(); inner != nil {
+		return inner
+	}
+	return msg
 }
 
 func parseMessageContent(rawMsg *waE2E.Message) (msgType MessageType, text *string, mentions []string, quoted *waE2E.Message, quotedStanzaID, quotedMessageAuthor string) {

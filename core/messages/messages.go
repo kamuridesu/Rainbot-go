@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -61,14 +62,19 @@ func deduplicateMentions(mentions []string) []string {
 func newMessage(rootCtx, ctx context.Context, bot *bot.Bot, v *events.Message, quotedMessage *waE2E.Message) (*Message, error) {
 	chatJID := v.Info.Chat.String()
 
-	chat, member, filters, err := fetchMessageContext(bot, chatJID, getAuthorJID(v))
+	authorJID, err := getAuthorJID(ctx, v, storeLIDResolver(bot))
+	if err != nil {
+		return nil, err
+	}
+
+	chat, member, filters, err := fetchMessageContext(bot, chatJID, authorJID)
 	if err != nil {
 		return nil, err
 	}
 
 	rawMsg := v.Message
 	if quotedMessage != nil {
-		rawMsg = quotedMessage
+		rawMsg = unwrapQuoted(quotedMessage)
 	}
 
 	msgType, text, rawMentions, nextQuotedMsg, _, quotedMessageAuthor := parseMessageContent(rawMsg)
@@ -138,6 +144,12 @@ func (h *Handler) Handle(event any) {
 		}
 
 		go func() {
+			defer func() {
+				if p := recover(); p != nil {
+					slog.Error("Panic while handling message", "id", v.Info.ID, "chat", v.Info.Chat.String(), "panic", p, "stack", string(debug.Stack()))
+				}
+			}()
+
 			ctx, cancel := context.WithTimeout(h.Ctx, 60*time.Second)
 			defer cancel()
 

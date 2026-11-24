@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
@@ -75,4 +76,48 @@ func NewStickerOriginal(m *messages.Message) {
 
 func NewStickerSquash(m *messages.Message) {
 	newSticker(m, sticker.StickerSquash)
+}
+
+func NewAudioSticker(m *messages.Message) {
+	var video *messages.Message
+	switch {
+	case m.Type == messages.VideoMessage:
+		video = m
+	case m.QuotedMessage != nil && m.QuotedMessage.Type == messages.VideoMessage:
+		video = m.QuotedMessage
+	default:
+		m.Reply("Envie ou mencione um vídeo com som.", emojis.Fail)
+		return
+	}
+
+	m.React(emojis.Waiting)
+
+	content, err := getMessageMediaBytes(video)
+	if err != nil {
+		m.Reply(fmt.Sprintf("Houve um erro ao processar a mídia: %s", err), emojis.Fail)
+		return
+	}
+
+	audio, length, err := sticker.ExtractAudio(content)
+	if errors.Is(err, sticker.ErrNoAudio) {
+		m.Reply("Esse vídeo não tem som.", emojis.Fail)
+		return
+	}
+	if err != nil {
+		m.Reply(fmt.Sprintf("Falha ao extrair o áudio: %s", err), emojis.Fail)
+		return
+	}
+
+	st := sticker.New(*m.Bot.Name, "bot", content, sticker.StickerSquash)
+	st.Length = length
+	webp, err := st.Convert()
+	if err != nil {
+		m.Reply(fmt.Sprintf("Falha ao converter para sticker: %s", err), emojis.Fail)
+		return
+	}
+
+	seconds := uint32(max(1, math.Round(length.Seconds())))
+	if _, err := m.ReplyAudioSticker(webp, audio, seconds, emojis.Success); err != nil {
+		slog.Error("Failed to send audio sticker", "err", err)
+	}
 }

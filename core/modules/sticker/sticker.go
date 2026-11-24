@@ -2,83 +2,74 @@ package sticker
 
 import (
 	"bytes"
+	"cmp"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
 
-func ExecFFmpregTransparent(input string) ([]byte, error) {
-	output := fmt.Sprintf("%s-transparent.webp", input)
-	defer DeleteTmpFile(output)
+const MaxStickerSize = 500 * 1024
 
-	vf := `scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=0x00000000,fps=20`
+var ErrStickerTooLarge = errors.New("sticker exceeds size limit even at lowest quality")
 
-	cmd := exec.Command("ffmpeg",
-		"-i", input,
-		"-t", "5",
-		"-an",
-		"-vcodec", "libwebp",
-		"-vf", vf,
-		"-loop", "0",
-		"-fs", "950K",
-		"-f", "webp",
-		output,
-	)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		slog.Error("FFmpeg transparent conversion failed", "error", err.Error(), "output", string(out))
-		return nil, fmt.Errorf("ffmpeg error: %w", err)
-	}
-
-	return os.ReadFile(output)
+type encodeAttempt struct {
+	FPS     int
+	Quality int
 }
 
-func ExecFFmpregSquash(input string) ([]byte, error) {
-	output := fmt.Sprintf("%s-squash.webp", input)
-	defer DeleteTmpFile(output)
-
-	vf := "scale=512:512,fps=20"
-
-	cmd := exec.Command("ffmpeg",
-		"-i", input,
-		"-t", "5",
-		"-an",
-		"-vcodec", "libwebp",
-		"-vf", vf,
-		"-loop", "0",
-		"-fs", "950K",
-		"-f", "webp",
-		output,
-	)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		slog.Error("FFmpeg squash conversion failed", "error", err.Error(), "output", string(out))
-		return nil, fmt.Errorf("ffmpeg error: %w", err)
-	}
-
-	return os.ReadFile(output)
+var encodeLadder = []encodeAttempt{
+	{FPS: 20, Quality: 75},
+	{FPS: 15, Quality: 50},
+	{FPS: 12, Quality: 35},
+	{FPS: 10, Quality: 20},
+	{FPS: 10, Quality: 10},
+	{FPS: 8, Quality: 5},
 }
 
-func ExecFFMpreg(input string) ([]byte, error) {
-	output := fmt.Sprintf("%s-new.webp", input)
+const (
+	scaleSquash      = "scale=512:512"
+	scaleTransparent = "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=0x00000000"
+)
+
+// nextAttempt picks the next ladder step after one that produced size bytes.
+// Each step shrinks output by roughly 1.3-1.6x, so far-oversized results skip
+// steps that could not fit anyway; this saves whole encodes on long clips.
+func nextAttempt(i, size int) int {
+	next := i + 1
+	switch ratio := float64(size) / MaxStickerSize; {
+	case ratio > 3:
+		next += 2
+	case ratio > 1.6:
+		next++
+	}
+	// Never skip past the last step: it is the only one that may still fit.
+	if next >= len(encodeLadder) && i < len(encodeLadder)-1 {
+		next = len(encodeLadder) - 1
+	}
+	return next
+}
+
+func encodeWebp(input, scale string, length time.Duration, a encodeAttempt) ([]byte, error) {
+	output := fmt.Sprintf("%s-%d-%d.webp", input, a.FPS, a.Quality)
 	defer DeleteTmpFile(output)
 
-	vf := `scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=white@0.0,fps=20`
-
 	cmd := exec.Command("ffmpeg",
+		"-y",
 		"-i", input,
-		"-t", "5",
+		"-t", strconv.FormatFloat(length.Seconds(), 'f', 3, 64),
 		"-an",
 		"-vcodec", "libwebp",
-		"-vf", vf,
+		"-q:v", strconv.Itoa(a.Quality),
+		"-compression_level", "4",
+		"-vf", fmt.Sprintf("%s,fps=%d", scale, a.FPS),
 		"-loop", "0",
-		"-fs", "950K",
 		"-f", "webp",
 		output,
 	)
@@ -157,15 +148,18 @@ const (
 	StickerTransparent
 )
 
+const DefaultStickerLength = 10 * time.Second
+
 type Sticker struct {
 	Author string
 	Pack   string
 	Data   []byte
 	Type   StickerType
+	Length time.Duration
 }
 
 func New(author, pack string, data []byte, sType StickerType) *Sticker {
-	return &Sticker{author, pack, data, sType}
+	return &Sticker{Author: author, Pack: pack, Data: data, Type: sType, Length: DefaultStickerLength}
 }
 
 func DeleteTmpFile(filename string) error {
@@ -187,20 +181,30 @@ func (s *Sticker) Convert() ([]byte, error) {
 	}
 	defer DeleteTmpFile(file)
 
+	scale := scaleTransparent
+	if s.Type == StickerSquash {
+		scale = scaleSquash
+	}
+
 	var output []byte
-
-	switch s.Type {
-	case StickerSquash:
-		output, err = ExecFFmpregSquash(file)
-	case StickerTransparent:
-		output, err = ExecFFmpregTransparent(file)
-	default:
-		output, err = ExecFFMpreg(file)
+	length := cmp.Or(s.Length, DefaultStickerLength)
+	for i := 0; i < len(encodeLadder); i = nextAttempt(i, len(output)) {
+		attempt := encodeLadder[i]
+		encoded, err := encodeWebp(file, scale, length, attempt)
+		if err != nil {
+			return nil, err
+		}
+		if output, err = s.addMetadata(encoded); err != nil {
+			return nil, err
+		}
+		if len(output) <= MaxStickerSize {
+			if i > 0 {
+				slog.Info("Sticker reduced to fit size limit", "fps", attempt.FPS, "quality", attempt.Quality, "size", len(output))
+			}
+			return output, nil
+		}
+		slog.Info("Sticker too large, retrying with lower quality", "fps", attempt.FPS, "quality", attempt.Quality, "size", len(output))
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return s.addMetadata(output)
+	return nil, fmt.Errorf("%w: %d KB", ErrStickerTooLarge, len(output)/1024)
 }

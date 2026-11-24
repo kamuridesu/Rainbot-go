@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -59,6 +60,13 @@ func (m *Message) ReplySticker(content []byte, _type MessageType, reaction ...em
 		return nil, err
 	}
 	return m.SendStickerMessage(content, _type, m.RawEvent.Info.Chat, m.buildReplyContext())
+}
+
+func (m *Message) ReplyAudioSticker(webp, audio []byte, seconds uint32, reaction ...emojis.Emoji) (*whatsmeow.SendResponse, error) {
+	if err := m.handleOptionalReaction(reaction...); err != nil {
+		return nil, err
+	}
+	return m.SendAudioStickerMessage(webp, audio, seconds, m.RawEvent.Info.Chat, m.buildReplyContext())
 }
 
 func (m *Message) React(emoji emojis.Emoji) (*whatsmeow.SendResponse, error) {
@@ -176,6 +184,66 @@ func (m *Message) SendStickerMessage(media []byte, _type MessageType, chatId typ
 	}
 
 	return m.sendAndLog(chatId, msg, "sticker")
+}
+
+func (m *Message) SendAudioStickerMessage(webp, audio []byte, seconds uint32, chatId types.JID, quotedMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {
+	stickerResp, err := m.uploadMedia(webp, whatsmeow.MediaImage)
+	if err != nil {
+		return nil, err
+	}
+	audioResp, err := m.uploadMedia(audio, whatsmeow.MediaAudio)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	msg := &waE2E.Message{
+		MessageContextInfo: &waE2E.MessageContextInfo{MessageSecret: secret},
+		AudioStickerMessage: &waE2E.FutureProofMessage{
+			Message: &waE2E.Message{
+				MessageContextInfo: &waE2E.MessageContextInfo{MessageSecret: secret},
+				StickerMessage: &waE2E.StickerMessage{
+					Audio: &waE2E.StickerMessage_AudioMessage{
+						AudioMessage: &waE2E.AudioMessage{
+							URL:               &audioResp.URL,
+							DirectPath:        &audioResp.DirectPath,
+							Mimetype:          proto.String("audio/ogg; codecs=opus"),
+							FileSHA256:        audioResp.FileSHA256,
+							FileEncSHA256:     audioResp.FileEncSHA256,
+							MediaKey:          audioResp.MediaKey,
+							FileLength:        proto.Uint64(audioResp.FileLength),
+							Seconds:           proto.Uint32(seconds),
+							MediaKeyTimestamp: proto.Int64(now.Unix()),
+						},
+					},
+					URL:               &stickerResp.URL,
+					DirectPath:        &stickerResp.DirectPath,
+					Mimetype:          proto.String("image/webp"),
+					FileSHA256:        stickerResp.FileSHA256,
+					FileEncSHA256:     stickerResp.FileEncSHA256,
+					MediaKey:          stickerResp.MediaKey,
+					FileLength:        proto.Uint64(stickerResp.FileLength),
+					MediaKeyTimestamp: proto.Int64(now.Unix()),
+					Width:             proto.Uint32(512),
+					Height:            proto.Uint32(512),
+					IsAnimated:        proto.Bool(true),
+					IsAvatar:          proto.Bool(false),
+					IsAiSticker:       proto.Bool(false),
+					IsLottie:          proto.Bool(false),
+					Premium:           proto.Int32(0),
+					StickerSentTS:     proto.Int64(now.UnixMilli()),
+					ContextInfo:       getFirstContext(quotedMessage),
+				},
+			},
+		},
+	}
+
+	return m.sendAndLog(chatId, msg, "audio sticker")
 }
 
 func (m *Message) SendAudioMessage(media []byte, chatId types.JID, quotedMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {

@@ -2,6 +2,7 @@ package messages
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -247,51 +248,56 @@ func TestSafeText(t *testing.T) {
 }
 
 func TestGetAuthorJID(t *testing.T) {
-	t.Run("sender is already @lid", func(t *testing.T) {
-		v := &events.Message{
-			Info: types.MessageInfo{
-				MessageSource: types.MessageSource{
-					Sender: types.NewJID("111", types.HiddenUserServer),
-				},
-			},
+	ctx := context.Background()
+	pn := types.NewJID("5511999999999", types.DefaultUserServer)
+	resolver := func(_ context.Context, jid types.JID) (types.JID, error) {
+		if jid == pn {
+			return types.NewJID("333", types.HiddenUserServer), nil
 		}
-		got := getAuthorJID(v)
-		if got != "111@lid" {
-			t.Errorf("getAuthorJID() = %q, want %q", got, "111@lid")
-		}
-	})
+		return types.EmptyJID, nil
+	}
+	msg := func(sender, alt types.JID) *events.Message {
+		return &events.Message{Info: types.MessageInfo{
+			MessageSource: types.MessageSource{Sender: sender, SenderAlt: alt},
+		}}
+	}
 
-	t.Run("falls back to SenderAlt when Sender isn't @lid", func(t *testing.T) {
-		v := &events.Message{
-			Info: types.MessageInfo{
-				MessageSource: types.MessageSource{
-					Sender:    types.NewJID("5511999999999", types.DefaultUserServer),
-					SenderAlt: types.NewJID("222", types.HiddenUserServer),
-				},
-			},
-		}
-		got := getAuthorJID(v)
-		if got != "222@lid" {
-			t.Errorf("getAuthorJID() = %q, want %q", got, "222@lid")
-		}
-	})
-
-	t.Run("panics when neither Sender nor SenderAlt is @lid", func(t *testing.T) {
-		defer func() {
-			if recover() == nil {
-				t.Error("expected getAuthorJID to panic when no @lid address is available")
+	tests := []struct {
+		name    string
+		v       *events.Message
+		resolve lidResolver
+		want    string
+		wantErr bool
+	}{
+		{"sender is already @lid", msg(types.NewJID("111", types.HiddenUserServer), types.EmptyJID), nil, "111@lid", false},
+		{"strips device from lid", msg(types.JID{User: "111", Device: 86, Server: types.HiddenUserServer}, types.EmptyJID), nil, "111@lid", false},
+		{"falls back to SenderAlt", msg(pn, types.NewJID("222", types.HiddenUserServer)), resolver, "222@lid", false},
+		{"resolves PN via store (placeholder resend)", msg(pn, types.EmptyJID), resolver, "333@lid", false},
+		{"resolves PN with device suffix", msg(types.JID{User: pn.User, Device: 3, Server: types.DefaultUserServer}, types.EmptyJID), resolver, "333@lid", false},
+		{"error when PN has no mapping", msg(types.NewJID("5511888888888", types.DefaultUserServer), types.EmptyJID), resolver, "", true},
+		{"error without resolver", msg(pn, types.EmptyJID), nil, "", true},
+		{"error on empty sender", msg(types.EmptyJID, types.EmptyJID), resolver, "", true},
+		{"resolver failure is not fatal", msg(pn, types.EmptyJID), func(context.Context, types.JID) (types.JID, error) {
+			return types.EmptyJID, errors.New("db down")
+		}, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getAuthorJID(ctx, tt.v, tt.resolve)
+			if tt.wantErr {
+				if !errors.Is(err, ErrNoLID) {
+					t.Fatalf("err = %v, want ErrNoLID", err)
+				}
+				return
 			}
-		}()
-		v := &events.Message{
-			Info: types.MessageInfo{
-				MessageSource: types.MessageSource{
-					Sender:    types.NewJID("5511999999999", types.DefaultUserServer),
-					SenderAlt: types.NewJID("5511888888888", types.DefaultUserServer),
-				},
-			},
-		}
-		getAuthorJID(v)
-	})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("getAuthorJID() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestBotContextSurvivesExpiredWorkContext(t *testing.T) {
@@ -327,5 +333,32 @@ func TestBotContextCancelledWithRoot(t *testing.T) {
 	case <-ctx.Done():
 	default:
 		t.Fatal("botContext not done after root context was cancelled")
+	}
+}
+
+func TestUnwrapQuoted(t *testing.T) {
+	sticker := &waE2E.Message{StickerMessage: &waE2E.StickerMessage{}}
+	tests := []struct {
+		name string
+		in   *waE2E.Message
+	}{
+		{"audio sticker", &waE2E.Message{AudioStickerMessage: &waE2E.FutureProofMessage{Message: sticker}}},
+		{"lottie sticker", &waE2E.Message{LottieStickerMessage: &waE2E.FutureProofMessage{Message: sticker}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := unwrapQuoted(tt.in)
+			if got != sticker {
+				t.Fatalf("expected inner sticker message, got %+v", got)
+			}
+			if typ, _, _, _, _, _ := parseMessageContent(got); typ != StickerMessage {
+				t.Errorf("type = %v, want StickerMessage", typ)
+			}
+		})
+	}
+
+	plain := &waE2E.Message{Conversation: proto.String("hi")}
+	if unwrapQuoted(plain) != plain {
+		t.Error("expected plain message to be returned unchanged")
 	}
 }

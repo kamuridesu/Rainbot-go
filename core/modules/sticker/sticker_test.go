@@ -3,6 +3,7 @@ package sticker
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -110,6 +111,75 @@ func TestStickerConvert(t *testing.T) {
 		}
 		if len(out) < 12 || string(out[0:4]) != "RIFF" || string(out[8:12]) != "WEBP" {
 			t.Errorf("Convert() type=%v output missing RIFF/WEBP header", st)
+		}
+	}
+}
+
+func TestStickerConvertHighMotionFitsLimit(t *testing.T) {
+	requireExternalTools(t)
+	if testing.Short() {
+		t.Skip("slow: encodes several times")
+	}
+
+	in := t.TempDir() + "/in.mp4"
+	if b, err := exec.Command("ffmpeg", "-v", "error",
+		"-f", "lavfi", "-i", "mandelbrot=size=720x720:rate=30", "-t", "6",
+		"-c:v", "libx264", "-b:v", "600k", "-pix_fmt", "yuv420p", in).CombinedOutput(); err != nil {
+		t.Fatalf("generate video: %v: %s", err, b)
+	}
+	video, err := os.ReadFile(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, st := range []StickerType{StickerSquash, StickerOriginal} {
+		out, err := New("Rainbot", "TestPack", video, st).Convert()
+		if err != nil {
+			t.Fatalf("Convert() type=%v error = %v", st, err)
+		}
+		if len(out) > MaxStickerSize {
+			t.Errorf("type=%v size = %d, want <= %d", st, len(out), MaxStickerSize)
+		}
+
+		f := t.TempDir() + "/out.webp"
+		if err := os.WriteFile(f, out, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		info, err := exec.Command("webpmux", "-info", f).CombinedOutput()
+		if err != nil {
+			t.Fatalf("webpmux -info: %v: %s", err, info)
+		}
+		var frames, minFrames int
+		for _, line := range bytes.Split(info, []byte("\n")) {
+			if n, _ := fmt.Sscanf(string(line), "Number of frames: %d", &frames); n == 1 {
+				break
+			}
+		}
+		minFrames = 5 * encodeLadder[len(encodeLadder)-1].FPS
+		if frames < minFrames {
+			t.Errorf("type=%v frames = %d, want >= %d (animation truncated)", st, frames, minFrames)
+		}
+	}
+}
+
+func TestNextAttempt(t *testing.T) {
+	last := len(encodeLadder) - 1
+	tests := []struct {
+		name    string
+		i, size int
+		want    int
+	}{
+		{"slightly over goes one step", 0, MaxStickerSize + 1, 1},
+		{"1.8x skips one step", 0, MaxStickerSize * 18 / 10, 2},
+		{"4x skips two steps", 0, MaxStickerSize * 4, 3},
+		{"skipping never jumps past last step", last - 2, MaxStickerSize * 4, last},
+	}
+	if got := nextAttempt(last, MaxStickerSize*4); got <= last {
+		t.Errorf("after last step: nextAttempt = %d, want > %d to end the loop", got, last)
+	}
+	for _, tt := range tests {
+		if got := nextAttempt(tt.i, tt.size); got != tt.want {
+			t.Errorf("%s: nextAttempt(%d, %d) = %d, want %d", tt.name, tt.i, tt.size, got, tt.want)
 		}
 	}
 }

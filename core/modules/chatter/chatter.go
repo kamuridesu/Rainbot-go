@@ -2,6 +2,7 @@ package chatter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -50,7 +51,7 @@ sobre você:
 
 menções:
 - usuários aparecem no texto como @123456 ou 123456@lid
-- para mencionar alguém, escreva só os números do lid com @lid (eg, 123456@lid), sem @ no inicio (o @ é adicionado automaticamente)
+- para mencionar alguém, escreva só os números do lid com @lid (eg, 123456@lid), sem @ no inicio
 - se não tiver o lid da pessoa, não tente mencionar; chame pelo nome ou de um jeito genérico
 
 comandos:
@@ -95,7 +96,12 @@ func New(usage *services.AIModelUsageService) *Chatter {
 	}
 }
 
+var ErrAINotConfigured = errors.New("AI_MODEL_KEY not set")
+
 func (c *Chatter) GenerateMessage(ctx context.Context, botName, prefix, style, message string) (string, error) {
+	if !configs.Get().AIEnabled() {
+		return "", ErrAINotConfigured
+	}
 	slog.Info("Loading Model...")
 	model, err := AcquireModel(c.Usage)
 	if err != nil {
