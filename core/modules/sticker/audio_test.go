@@ -24,24 +24,41 @@ func requireFFmpeg(t *testing.T) {
 func makeTestVideo(t *testing.T, seconds float64, withAudio bool, audioOffset float64) []byte {
 	t.Helper()
 	requireFFmpeg(t)
+	dir := t.TempDir()
 	dur := strconv.FormatFloat(seconds, 'f', 3, 64)
-	out := filepath.Join(t.TempDir(), "in.mp4")
-
-	var args []string
-	if audioOffset < 0 {
-		args = append(args, "-itsoffset", strconv.FormatFloat(-audioOffset, 'f', 3, 64))
-	}
-	args = append(args, "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration="+dur)
-	if withAudio {
-		if audioOffset > 0 {
-			args = append(args, "-itsoffset", strconv.FormatFloat(audioOffset, 'f', 3, 64))
+	run := func(args ...string) {
+		t.Helper()
+		if b, err := exec.Command("ffmpeg", append([]string{"-v", "error", "-y"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("ffmpeg %v: %v: %s", args, err, b)
 		}
-		args = append(args, "-f", "lavfi", "-i", "sine=frequency=440:duration="+dur)
 	}
-	args = append(args, "-v", "error", "-pix_fmt", "yuv420p", out)
-	if b, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
-		t.Fatalf("generate video: %v: %s", err, b)
+
+	videoOnly := filepath.Join(dir, "v.mp4")
+	run("-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration="+dur, "-pix_fmt", "yuv420p", videoOnly)
+	out := videoOnly
+
+	if withAudio {
+		audioOnly := filepath.Join(dir, "a.m4a")
+		run("-f", "lavfi", "-i", "sine=frequency=440:duration="+dur, "-c:a", "aac", audioOnly)
+
+		// The offset is applied while remuxing with -c copy. Applied during
+		// encoding, ffmpeg 4.4 (CI) and 6.1 (Docker image) fill the gap by
+		// duplicating frames, leaving a file with no offset at all.
+		offset := strconv.FormatFloat(max(audioOffset, -audioOffset), 'f', 3, 64)
+		videoIn := []string{"-i", videoOnly}
+		audioIn := []string{"-i", audioOnly}
+		switch {
+		case audioOffset > 0:
+			audioIn = append([]string{"-itsoffset", offset}, audioIn...)
+		case audioOffset < 0:
+			videoIn = append([]string{"-itsoffset", offset}, videoIn...)
+		}
+
+		out = filepath.Join(dir, "in.mp4")
+		args := append(videoIn, audioIn...)
+		run(append(args, "-map", "0:v", "-map", "1:a", "-c", "copy", out)...)
 	}
+
 	data, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatal(err)
