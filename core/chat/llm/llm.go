@@ -46,7 +46,7 @@ func Matches(m *messages.Message) bool {
 	if m.Chat.AllowLLM == 0 {
 		return false
 	}
-	return mentionsBot(m) || isReplyToBot(m)
+	return !m.IsFromGroup() || mentionsBot(m) || isReplyToBot(m)
 }
 
 func writeMessage(b *strings.Builder, label string, author any, content string) {

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	cFilter "github.com/kamuridesu/rainbot-go/core/chat/filter"
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/database/providers"
 	"github.com/kamuridesu/rainbot-go/core/database/repositories"
@@ -77,8 +78,9 @@ func seedChat(t *testing.T, db *providers.Database, chatRepo repositories.ChatRe
 	}
 	filterRepo := repositories.NewFilterRepository(db)
 	quotlyRepo := repositories.NewQuotlyRepository(db)
-	filterRepo.Create(&models.Filter{ChatID: id, Pattern: "img", Kind: "image", Response: id + ".jpg"})
-	filterRepo.Create(&models.Filter{ChatID: id, Pattern: "txt", Kind: "text", Response: "hello"})
+	filterRepo.Create(&models.Filter{ChatID: id, Pattern: "img", Kind: cFilter.KindImage, Response: id + ".jpg"})
+	filterRepo.Create(&models.Filter{ChatID: id, Pattern: "txt", Kind: cFilter.KindText, Response: "hello"})
+	filterRepo.Create(&models.Filter{ChatID: id, Pattern: "som", Kind: cFilter.KindAudioSticker, Response: id + ".webp"})
 	quotlyRepo.Create(&models.QuotlyFile{ChatID: id, FileId: id + ".png"})
 	if leftAgo > 0 {
 		chatRepo.MarkLeft(id, now.Add(-leftAgo))
@@ -96,7 +98,7 @@ func TestRunOncePurgesChatsLeftMoreThanAWeekAgo(t *testing.T) {
 	}
 
 	slices.Sort(store.deleted)
-	want := []string{"old@g.us.jpg", "old@g.us.png"}
+	want := []string{"old@g.us.jpg", "old@g.us.ogg", "old@g.us.png", "old@g.us.webp"}
 	if !slices.Equal(store.deleted, want) {
 		t.Errorf("deleted files = %v, want %v", store.deleted, want)
 	}

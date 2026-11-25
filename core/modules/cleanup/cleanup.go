@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	cFilter "github.com/kamuridesu/rainbot-go/core/chat/filter"
 	"github.com/kamuridesu/rainbot-go/core/services"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
@@ -123,8 +124,11 @@ func (c *Cleaner) mediaFiles(chatId string) ([]string, error) {
 		return nil, err
 	}
 	for _, filter := range filters {
-		if filter.Kind != "text" && filter.Response != "" {
+		if filter.Kind != cFilter.KindText && filter.Response != "" {
 			files = append(files, filter.Response)
+		}
+		if filter.Kind == cFilter.KindAudioSticker && filter.Response != "" {
+			files = append(files, cFilter.AudioFilename(filter.Response))
 		}
 	}
 

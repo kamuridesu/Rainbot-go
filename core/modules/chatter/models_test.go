@@ -15,7 +15,7 @@ type fakeUsageRepo struct {
 }
 
 func (r *fakeUsageRepo) FindAll() ([]*models.AIModelUsage, error) { return nil, nil }
-func (r *fakeUsageRepo) Close() error                              { return nil }
+func (r *fakeUsageRepo) Close() error                             { return nil }
 func (r *fakeUsageRepo) Upsert(*models.AIModelUsage) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

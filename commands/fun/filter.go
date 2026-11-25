@@ -8,6 +8,7 @@ import (
 	cFilter "github.com/kamuridesu/rainbot-go/core/chat/filter"
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
@@ -46,28 +47,44 @@ func NewFilter(m *messages.Message) {
 
 	var bytes []byte
 	var filename string
-	_type := "text"
+	_type := cFilter.KindText
 	response := *quoted.Text
 
 	if quoted.Type == messages.ImageMessage || quoted.Type == messages.VideoMessage || quoted.Type == messages.StickerMessage {
 		_type = "media"
 		switch quoted.Type {
 		case messages.ImageMessage:
-			_type = "image"
+			_type = cFilter.KindImage
 			bytes, err = m.Bot.Client.Download(m.Ctx, quoted.RawMessage.ImageMessage)
 			filename = storage.RandomFilename("jpg")
 		case messages.VideoMessage:
-			_type = "video"
+			_type = cFilter.KindVideo
 			bytes, err = m.Bot.Client.Download(m.Ctx, quoted.RawMessage.VideoMessage)
 			filename = storage.RandomFilename("mp4")
 		case messages.StickerMessage:
-			_type = "sticker"
+			_type = cFilter.KindSticker
 			bytes, err = m.Bot.Client.Download(m.Ctx, quoted.RawMessage.StickerMessage)
 			filename = storage.RandomFilename("webp")
 		}
 		if err != nil {
 			m.Reply(fmt.Sprintf("Erro ao baixar arquivo: %s", err), emojis.Fail)
 			return
+		}
+		if audioMsg := quoted.RawMessage.GetStickerMessage().GetAudioMessage(); audioMsg != nil {
+			audio, err := m.Bot.Client.Download(m.Ctx, audioMsg)
+			if err != nil {
+				m.Reply(fmt.Sprintf("Erro ao baixar o áudio da figurinha: %s", err), emojis.Fail)
+				return
+			}
+			if _, err := sticker.OggOpusDuration(audio); err != nil {
+				m.Reply(fmt.Sprintf("Áudio da figurinha inválido: %s", err), emojis.Fail)
+				return
+			}
+			if err := storage.NewFile(cFilter.AudioFilename(filename)).Write(m.Ctx, audio); err != nil {
+				m.Reply(fmt.Sprintf("Erro ao salvar o áudio da figurinha: %s", err), emojis.Fail)
+				return
+			}
+			_type = cFilter.KindAudioSticker
 		}
 		if filename != "" {
 			file := storage.NewFile(filename)
@@ -146,10 +163,15 @@ func DeleteFilter(m *messages.Message) {
 		return
 	}
 
-	if foundFilter.Kind != "text" {
+	if foundFilter.Kind != cFilter.KindText {
 		file := storage.NewFile(foundFilter.Response)
 		if e := file.Delete(m.Ctx); e != nil {
 			m.Reply("Erro ao deletar arquivo do filtro", emojis.Fail)
+		}
+	}
+	if foundFilter.Kind == cFilter.KindAudioSticker {
+		if e := storage.NewFile(cFilter.AudioFilename(foundFilter.Response)).Delete(m.Ctx); e != nil {
+			m.Reply("Erro ao deletar o áudio do filtro", emojis.Fail)
 		}
 	}
 

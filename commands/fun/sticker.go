@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"strconv"
 	"time"
 
@@ -128,7 +127,7 @@ func NewAudioSticker(m *messages.Message) {
 		return
 	}
 
-	seconds := uint32(max(1, math.Round(length.Seconds())))
+	seconds := sticker.DurationSeconds(length)
 	if _, err := m.ReplyAudioSticker(webp, audio, seconds, emojis.Success); err != nil {
 		slog.Error("Failed to send audio sticker", "err", err)
 	}

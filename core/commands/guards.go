@@ -93,3 +93,7 @@ func HasQuotedMessage(m *messages.Message) error {
 	}
 	return nil
 }
+
+func DisableCommand(m *messages.Message) error {
+	return errors.New("Função desativada ou não implementada")
+}

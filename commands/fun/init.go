@@ -134,7 +134,7 @@ func init() {
 		DownloadVideo, commands.HasArgs(1, true),
 	)
 
-	commands.NewCommand("music", "Baixa uma musica", DiversaoCategory, nil, nil, DownloadAudio, commands.HasArgs(1, true))
+	commands.NewCommand("music", "Baixa uma musica", DiversaoCategory, nil, nil, DownloadAudio, commands.DisableCommand, commands.HasArgs(1, true))
 
 	commands.NewCommand("quotly",
 		"Gera um quote a partir da menção de uma mensagem de um usuário",

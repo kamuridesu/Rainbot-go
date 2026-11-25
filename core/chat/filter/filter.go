@@ -4,13 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/database/models"
 	"github.com/kamuridesu/rainbot-go/core/messages"
+	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
 	"github.com/kamuridesu/rainbot-go/internal/emojis"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 )
@@ -64,26 +67,69 @@ func matchesPattern(text, pattern string) bool {
 	return re.MatchString(text)
 }
 
-func replyMedia(m *messages.Message, filter *models.Filter) error {
-	file := storage.NewFile(filter.Response, storage.ModeReadOnly)
+const (
+	KindText         = "text"
+	KindImage        = "image"
+	KindVideo        = "video"
+	KindSticker      = "sticker"
+	KindAudioSticker = "audiosticker"
+)
+
+func AudioFilename(webpFilename string) string {
+	return strings.TrimSuffix(webpFilename, path.Ext(webpFilename)) + ".ogg"
+}
+
+var errMissingFile = errors.New("filter file missing")
+
+func readFilterFile(m *messages.Message, filter *models.Filter, name string) ([]byte, error) {
+	file := storage.NewFile(name, storage.ModeReadOnly)
 	bytes, err := file.Read(m.Ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotExists) {
 			slog.Error(fmt.Sprintf("File %s does not exists", file.Name))
 			m.Reply(fmt.Sprintf("Arquivo do filter %s não foi econtrado, por favor, remova o filtro.", filter.Pattern), emojis.Fail)
-			return nil
+			return nil, errMissingFile
 		}
 		slog.Error(err.Error())
+		return nil, err
+	}
+	return bytes, nil
+}
+
+func replyAudioSticker(m *messages.Message, filter *models.Filter, webp []byte) error {
+	audio, err := readFilterFile(m, filter, AudioFilename(filter.Response))
+	if err != nil {
+		return err
+	}
+	length, err := sticker.OggOpusDuration(audio)
+	if err != nil {
+		return fmt.Errorf("filter %s audio: %w", filter.Pattern, err)
+	}
+	_, err = m.ReplyAudioSticker(webp, audio, sticker.DurationSeconds(length))
+	return err
+}
+
+func replyMedia(m *messages.Message, filter *models.Filter) error {
+	bytes, err := readFilterFile(m, filter, filter.Response)
+	if errors.Is(err, errMissingFile) {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
 	switch filter.Kind {
-	case "image":
+	case KindImage:
 		_, err = m.ReplyMedia(bytes, "", messages.ImageMessage)
-	case "video":
+	case KindVideo:
 		_, err = m.ReplyMedia(bytes, "", messages.VideoMessage)
-	case "sticker":
+	case KindSticker:
 		_, err = m.ReplySticker(bytes, messages.ImageMessage)
+	case KindAudioSticker:
+		err = replyAudioSticker(m, filter, bytes)
+		if errors.Is(err, errMissingFile) {
+			return nil
+		}
 	}
 
 	return err
@@ -96,7 +142,7 @@ func GetChatFilters(m *messages.Message) error {
 	}
 	for _, filter := range filters {
 		if matchesPattern(*m.Text, filter.Pattern) {
-			if filter.Kind == "text" {
+			if filter.Kind == KindText {
 				m.Reply(filter.Response)
 				return nil
 			}

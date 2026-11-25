@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -20,6 +22,7 @@ import (
 	"github.com/kamuridesu/rainbot-go/internal/bot/botfakes"
 	"github.com/kamuridesu/rainbot-go/internal/storage"
 	"github.com/kamuridesu/rainbot-go/internal/utils"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
@@ -97,7 +100,7 @@ func TestGetChatFiltersNoMatch(t *testing.T) {
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, db, "hello world")
 
-	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "oi", Kind: "text", Response: "ola"}); err != nil {
+	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "oi", Kind: KindText, Response: "ola"}); err != nil {
 		t.Fatalf("seed error = %v", err)
 	}
 
@@ -114,7 +117,7 @@ func TestGetChatFiltersTextMatch(t *testing.T) {
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, db, "diga oi por favor")
 
-	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "oi", Kind: "text", Response: "ola!"}); err != nil {
+	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "oi", Kind: KindText, Response: "ola!"}); err != nil {
 		t.Fatalf("seed error = %v", err)
 	}
 
@@ -135,7 +138,7 @@ func TestGetChatFiltersMediaMatchMissingFile(t *testing.T) {
 	fake := &botfakes.FakeClient{}
 	m := newTestMessage(t, fake, db, "manda a figura")
 
-	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "figura", Kind: "sticker", Response: "does-not-exist.webp"}); err != nil {
+	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "figura", Kind: KindSticker, Response: "does-not-exist.webp"}); err != nil {
 		t.Fatalf("seed error = %v", err)
 	}
 
@@ -158,7 +161,7 @@ func TestGetChatFiltersMediaMatchSuccess(t *testing.T) {
 	if err := storage.NewFile(fileID).Write(m.Ctx, webpBytes); err != nil {
 		t.Fatalf("seed file error = %v", err)
 	}
-	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "figura", Kind: "sticker", Response: fileID}); err != nil {
+	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "figura", Kind: KindSticker, Response: fileID}); err != nil {
 		t.Fatalf("seed error = %v", err)
 	}
 
@@ -167,5 +170,86 @@ func TestGetChatFiltersMediaMatchSuccess(t *testing.T) {
 	}
 	if len(fake.SentMessages) != 1 || fake.SentMessages[0].Message.GetStickerMessage() == nil {
 		t.Errorf("expected a sticker reply, got %v", fake.SentMessages)
+	}
+}
+
+func encodeTestOpus(t *testing.T) []byte {
+	t.Helper()
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not available")
+	}
+	out := filepath.Join(t.TempDir(), "a.ogg")
+	if b, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+		"-c:a", "libopus", "-ac", "1", "-f", "ogg", out).CombinedOutput(); err != nil {
+		t.Fatalf("encode opus: %v: %s", err, b)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func seedAudioStickerFilter(t *testing.T, m *messages.Message, db *database.DatabaseSingleton, withAudio bool) {
+	t.Helper()
+	fileID := storage.RandomFilename("webp")
+	if err := storage.NewFile(fileID).Write(m.Ctx, encodeTestWebP(t)); err != nil {
+		t.Fatalf("seed webp error = %v", err)
+	}
+	if withAudio {
+		if err := storage.NewFile(AudioFilename(fileID)).Write(m.Ctx, encodeTestOpus(t)); err != nil {
+			t.Fatalf("seed audio error = %v", err)
+		}
+	}
+	if err := db.Filter.NewFilter(&models.Filter{ChatID: m.Chat.ChatID, Pattern: "figura", Kind: KindAudioSticker, Response: fileID}); err != nil {
+		t.Fatalf("seed error = %v", err)
+	}
+}
+
+func TestAudioFilename(t *testing.T) {
+	if got := AudioFilename("abc.webp"); got != "abc.ogg" {
+		t.Errorf("AudioFilename = %q, want abc.ogg", got)
+	}
+}
+
+func TestGetChatFiltersAudioStickerMatch(t *testing.T) {
+	db := newTestDB(t)
+	t.Chdir(t.TempDir())
+	fake := &botfakes.FakeClient{
+		UploadFunc: func(ctx context.Context, data []byte, mt whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+			return whatsmeow.UploadResponse{URL: "u", DirectPath: "/d", MediaKey: make([]byte, 32), FileLength: uint64(len(data))}, nil
+		},
+	}
+	m := newTestMessage(t, fake, db, "manda a figura")
+	seedAudioStickerFilter(t, m, db, true)
+
+	if err := GetChatFilters(m); err != nil {
+		t.Fatalf("GetChatFilters() error = %v", err)
+	}
+	if len(fake.SentMessages) != 1 {
+		t.Fatalf("expected 1 sent message, got %d", len(fake.SentMessages))
+	}
+	audio := fake.SentMessages[0].Message.GetAudioStickerMessage().GetMessage().GetStickerMessage().GetAudioMessage()
+	if audio == nil {
+		t.Fatalf("expected an audio sticker reply, got %v", fake.SentMessages[0].Message)
+	}
+	if audio.GetSeconds() != 2 {
+		t.Errorf("Seconds = %d, want 2", audio.GetSeconds())
+	}
+}
+
+func TestGetChatFiltersAudioStickerMissingAudio(t *testing.T) {
+	db := newTestDB(t)
+	t.Chdir(t.TempDir())
+	fake := &botfakes.FakeClient{}
+	m := newTestMessage(t, fake, db, "manda a figura")
+	seedAudioStickerFilter(t, m, db, false)
+
+	if err := GetChatFilters(m); err != nil {
+		t.Fatalf("GetChatFilters() error = %v", err)
+	}
+	// Fail reaction + missing-file reply, no sticker.
+	if len(fake.SentMessages) != 2 {
+		t.Fatalf("expected 2 sent messages, got %d", len(fake.SentMessages))
 	}
 }
