@@ -46,6 +46,9 @@ func Matches(m *messages.Message) bool {
 	if m.Chat.AllowLLM == 0 {
 		return false
 	}
+	if strings.TrimSpace(deref(m.Text)) == "" {
+		return false
+	}
 	return !m.IsFromGroup() || mentionsBot(m) || isReplyToBot(m)
 }
 
