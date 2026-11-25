@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
@@ -166,7 +167,7 @@ func TestNewAudioStickerFromQuotedVideo(t *testing.T) {
 		},
 		UploadFunc: func(ctx context.Context, data []byte, mt whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 			uploaded = append(uploaded, mt)
-			return whatsmeow.UploadResponse{URL: "u", DirectPath: "/d", FileLength: uint64(len(data))}, nil
+			return whatsmeow.UploadResponse{URL: "u", DirectPath: "/d", MediaKey: make([]byte, 32), FileLength: uint64(len(data))}, nil
 		},
 	}
 	m := newTestMessage(t, fake, newTestDB(t))
@@ -182,6 +183,9 @@ func TestNewAudioStickerFromQuotedVideo(t *testing.T) {
 
 	if len(uploaded) != 2 || uploaded[0] != whatsmeow.MediaImage || uploaded[1] != whatsmeow.MediaAudio {
 		t.Fatalf("unexpected uploads: %v", uploaded)
+	}
+	if fake.StickerUploads != 1 {
+		t.Errorf("sticker must go through UploadSticker (sticker MMS endpoint), got %d calls", fake.StickerUploads)
 	}
 	last := fake.SentMessages[len(fake.SentMessages)-1].Message
 	stk := last.GetAudioStickerMessage().GetMessage().GetStickerMessage()
@@ -199,8 +203,38 @@ func TestNewAudioStickerFromQuotedVideo(t *testing.T) {
 	if stk.GetWidth() != 512 || stk.GetHeight() != 512 {
 		t.Errorf("size = %dx%d, want 512x512", stk.GetWidth(), stk.GetHeight())
 	}
+	if stk.GetContextInfo().GetMediaDomainInfo().GetMediaKeyDomain() != waE2E.MediaKeyDomain_MEDIA_KEY_DOMAIN_E2EE {
+		t.Error("sticker is missing E2EE mediaDomainInfo")
+	}
+	if stk.GetFirstFrameLength() == 0 || len(stk.GetFirstFrameSidecar()) != 10 {
+		t.Errorf("unexpected first frame info: length=%d sidecar=%x", stk.GetFirstFrameLength(), stk.GetFirstFrameSidecar())
+	}
 	aud := stk.GetAudioMessage()
+	if aud.GetContextInfo().GetMediaDomainInfo().GetMediaKeyDomain() != waE2E.MediaKeyDomain_MEDIA_KEY_DOMAIN_E2EE {
+		t.Error("sticker audio is missing E2EE mediaDomainInfo")
+	}
 	if aud.GetMimetype() != "audio/ogg; codecs=opus" || aud.GetSeconds() != 2 {
 		t.Errorf("unexpected audio fields: mimetype=%q seconds=%d", aud.GetMimetype(), aud.GetSeconds())
+	}
+}
+
+func TestNewAudioStickerRejectsInvalidDuration(t *testing.T) {
+	for _, arg := range []string{"0", "abc", "99"} {
+		fake := &botfakes.FakeClient{
+			DownloadFunc: func(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error) {
+				return []byte("video"), nil
+			},
+		}
+		m := newTestMessage(t, fake, newTestDB(t))
+		m.Type = messages.VideoMessage
+		m.RawMessage = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{}}
+		m.Args = &[]string{arg}
+
+		NewAudioSticker(m)
+
+		last := fake.SentMessages[len(fake.SentMessages)-1].Message
+		if text := last.GetExtendedTextMessage().GetText(); !strings.Contains(text, "Duração inválida") {
+			t.Errorf("arg %q: expected invalid duration reply, got %q", arg, text)
+		}
 	}
 }

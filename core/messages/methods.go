@@ -187,7 +187,7 @@ func (m *Message) SendStickerMessage(media []byte, _type MessageType, chatId typ
 }
 
 func (m *Message) SendAudioStickerMessage(webp, audio []byte, seconds uint32, chatId types.JID, quotedMessage ...*waE2E.ContextInfo) (*whatsmeow.SendResponse, error) {
-	stickerResp, err := m.uploadMedia(webp, whatsmeow.MediaImage)
+	stickerResp, err := m.uploadSticker(webp)
 	if err != nil {
 		return nil, err
 	}
@@ -198,6 +198,15 @@ func (m *Message) SendAudioStickerMessage(webp, audio []byte, seconds uint32, ch
 
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
+		return nil, err
+	}
+
+	imageLength, err := webpImageDataLength(webp)
+	if err != nil {
+		return nil, err
+	}
+	sidecar, err := firstFrameSidecar(webp, stickerResp.MediaKey, imageLength)
+	if err != nil {
 		return nil, err
 	}
 
@@ -219,6 +228,7 @@ func (m *Message) SendAudioStickerMessage(webp, audio []byte, seconds uint32, ch
 							FileLength:        proto.Uint64(audioResp.FileLength),
 							Seconds:           proto.Uint32(seconds),
 							MediaKeyTimestamp: proto.Int64(now.Unix()),
+							ContextInfo:       withE2EEMediaDomain(nil, audioResp.MediaKey),
 						},
 					},
 					URL:               &stickerResp.URL,
@@ -236,8 +246,10 @@ func (m *Message) SendAudioStickerMessage(webp, audio []byte, seconds uint32, ch
 					IsAiSticker:       proto.Bool(false),
 					IsLottie:          proto.Bool(false),
 					Premium:           proto.Int32(0),
+					FirstFrameLength:  proto.Uint32(uint32(imageLength)),
+					FirstFrameSidecar: sidecar,
 					StickerSentTS:     proto.Int64(now.UnixMilli()),
-					ContextInfo:       getFirstContext(quotedMessage),
+					ContextInfo:       withE2EEMediaDomain(getFirstContext(quotedMessage), stickerResp.MediaKey),
 				},
 			},
 		},

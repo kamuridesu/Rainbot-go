@@ -21,6 +21,7 @@ type FakeClient struct {
 	BuildReactionFunc           func(chat, sender types.JID, id types.MessageID, reaction string) *waE2E.Message
 	BuildEditFunc               func(chat types.JID, id types.MessageID, newContent *waE2E.Message) *waE2E.Message
 	UploadFunc                  func(ctx context.Context, plaintext []byte, appInfo whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
+	StickerUploads              int
 	DownloadFunc                func(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error)
 	GetGroupInfoFunc            func(ctx context.Context, jid types.JID) (*types.GroupInfo, error)
 	GetProfilePictureInfoFunc   func(ctx context.Context, jid types.JID, params *whatsmeow.GetProfilePictureParams) (*types.ProfilePictureInfo, error)
@@ -68,6 +69,13 @@ func (f *FakeClient) Upload(ctx context.Context, plaintext []byte, appInfo whats
 		return f.UploadFunc(ctx, plaintext, appInfo)
 	}
 	return whatsmeow.UploadResponse{}, nil
+}
+
+// UploadSticker counts the call and delegates to UploadFunc with image keys,
+// which is what the real client encrypts stickers with.
+func (f *FakeClient) UploadSticker(ctx context.Context, plaintext []byte) (whatsmeow.UploadResponse, error) {
+	f.StickerUploads++
+	return f.Upload(ctx, plaintext, whatsmeow.MediaImage)
 }
 
 func (f *FakeClient) Download(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error) {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strconv"
+	"time"
 
 	"github.com/kamuridesu/rainbot-go/core/messages"
 	"github.com/kamuridesu/rainbot-go/core/modules/sticker"
@@ -98,7 +100,17 @@ func NewAudioSticker(m *messages.Message) {
 		return
 	}
 
-	audio, length, err := sticker.ExtractAudio(content)
+	var maxLength time.Duration
+	if m.Args != nil && len(*m.Args) > 0 {
+		secs, err := strconv.Atoi((*m.Args)[0])
+		if err != nil || secs < 1 || secs > sticker.AudioStickerMaxSeconds {
+			m.Reply(fmt.Sprintf("Duração inválida, use um número de 1 a %d.", sticker.AudioStickerMaxSeconds), emojis.Fail)
+			return
+		}
+		maxLength = time.Duration(secs) * time.Second
+	}
+
+	audio, length, err := sticker.ExtractAudio(content, maxLength)
 	if errors.Is(err, sticker.ErrNoAudio) {
 		m.Reply("Esse vídeo não tem som.", emojis.Fail)
 		return

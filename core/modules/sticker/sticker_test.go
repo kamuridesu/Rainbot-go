@@ -2,6 +2,7 @@ package sticker
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -13,31 +14,57 @@ import (
 )
 
 func TestGenerateMetadata(t *testing.T) {
-	data, err := GenerateMetadata("Rainbot", "MyPack")
+	data, err := GenerateMetadata(`Rain"bot`, "MyPack")
 	if err != nil {
 		t.Fatalf("GenerateMetadata() error = %v", err)
 	}
 
-	const headerLen = 14 + 2 + 6
-	if len(data) <= headerLen {
-		t.Fatalf("GenerateMetadata() output too short: %d bytes", len(data))
+	// Walk the TIFF structure the way a strict EXIF reader would.
+	be := binary.BigEndian
+	if len(data) < 26 || string(data[:2]) != "MM" || be.Uint16(data[2:4]) != 42 {
+		t.Fatalf("bad TIFF header: % x", data[:min(8, len(data))])
+	}
+	ifd := int(be.Uint32(data[4:8]))
+	if n := be.Uint16(data[ifd:]); n != 1 {
+		t.Fatalf("entries = %d, want 1", n)
+	}
+	entry := data[ifd+2 : ifd+14]
+	tag, typ, count, offset := be.Uint16(entry[0:2]), be.Uint16(entry[2:4]), be.Uint32(entry[4:8]), be.Uint32(entry[8:12])
+	if tag != 0x5741 || typ != 7 {
+		t.Errorf("tag=%#x type=%d, want 0x5741/7", tag, typ)
+	}
+	if next := be.Uint32(data[ifd+14 : ifd+18]); next != 0 {
+		t.Errorf("next IFD pointer = %#x, want 0 (JSON must not overlap it)", next)
+	}
+	if int(offset) < ifd+18 || int(offset)+int(count) != len(data) {
+		t.Fatalf("value at %d+%d does not fit after the IFD in %d bytes", offset, count, len(data))
 	}
 
-	jsonPart := data[headerLen:]
 	var parsed struct {
 		Name      string `json:"sticker-pack-name"`
 		Publisher string `json:"sticker-pack-publisher"`
 	}
-	if err := json.Unmarshal(jsonPart, &parsed); err != nil {
-		t.Fatalf("failed to parse embedded JSON metadata: %v (raw: %q)", err, jsonPart)
+	if err := json.Unmarshal(data[offset:offset+count], &parsed); err != nil {
+		t.Fatalf("failed to parse embedded JSON metadata: %v", err)
 	}
-	if parsed.Name != "Rainbot" || parsed.Publisher != "MyPack" {
-		t.Errorf("parsed metadata = %+v, want Name=Rainbot Publisher=MyPack", parsed)
+	if parsed.Name != `Rain"bot` || parsed.Publisher != "MyPack" {
+		t.Errorf("parsed metadata = %+v", parsed)
 	}
+}
 
-	jsonLen := int(data[14]) | int(data[15])<<8
-	if jsonLen != len(jsonPart) {
-		t.Errorf("encoded length = %d, want %d", jsonLen, len(jsonPart))
+// TestGenerateMetadataMatchesOfficialLayout compares the header against the
+// one in a sticker made by WhatsApp's own sticker maker (JSON length 0x77).
+func TestGenerateMetadataMatchesOfficialLayout(t *testing.T) {
+	official := []byte{0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08, 0x00, 0x01, 0x57, 0x41, 0x00, 0x07, 0x00, 0x00, 0x00, 0x77, 0x00, 0x00, 0x00, 0x1a, 0x00, 0x00, 0x00, 0x00}
+
+	data, err := GenerateMetadata("a", "b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := append([]byte{}, data[:26]...)
+	copy(got[14:18], official[14:18]) // the JSON length differs
+	if !bytes.Equal(got, official) {
+		t.Errorf("header = % x\nwant     % x", got, official)
 	}
 }
 

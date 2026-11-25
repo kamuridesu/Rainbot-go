@@ -10,3 +10,6 @@
 *.png
 !assets/**/*
 coverage.out
+audio_sticker_dumps/
+go.work
+go.work.sum

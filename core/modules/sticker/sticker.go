@@ -1,8 +1,9 @@
 package sticker
 
 import (
-	"bytes"
 	"cmp"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -120,24 +121,38 @@ func CreateTempFile(data []byte) (string, error) {
 	return fullpath, nil
 }
 
+// stickerExifTag is the private EXIF tag WhatsApp reads sticker metadata from.
+const stickerExifTag = 0x5741
+
+// GenerateMetadata builds the EXIF block WhatsApp reads sticker pack info from:
+// a big-endian TIFF header with a single IFD holding one UNDEFINED entry (tag
+// 0x5741) that points at the JSON. The layout matches stickers made by official
+// clients. The previous header omitted the next-IFD pointer, so the JSON
+// overlapped it; regular stickers tolerated that, but clients refused to play
+// the sound of audio stickers carrying it.
 func GenerateMetadata(author, pack string) ([]byte, error) {
-	metadata := fmt.Sprintf(`{"sticker-pack-name":"%s","sticker-pack-publisher":"%s"}`, author, pack)
+	metadata, err := json.Marshal(struct {
+		Name      string `json:"sticker-pack-name"`
+		Publisher string `json:"sticker-pack-publisher"`
+	}{author, pack})
+	if err != nil {
+		return nil, err
+	}
 
-	littleEndianHeader := []byte{0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00}
-	exifHeader := []byte{0x00, 0x00, 0x16, 0x00, 0x00, 0x00}
+	const dataOffset = 8 + 2 + 12 + 4 // TIFF header, entry count, one entry, next-IFD pointer
 
-	jsonLen := len(metadata)
-	lowByte := byte(jsonLen & 0xFF)
-	highByte := byte((jsonLen >> 8) & 0xFF)
-
-	var finalBuffer bytes.Buffer
-	finalBuffer.Write(littleEndianHeader)
-	finalBuffer.WriteByte(lowByte)
-	finalBuffer.WriteByte(highByte)
-	finalBuffer.Write(exifHeader)
-	finalBuffer.Write([]byte(metadata))
-
-	return finalBuffer.Bytes(), nil
+	be := binary.BigEndian
+	buf := make([]byte, 0, dataOffset+len(metadata))
+	buf = append(buf, 'M', 'M')
+	buf = be.AppendUint16(buf, 42) // TIFF magic
+	buf = be.AppendUint32(buf, 8)  // offset of the first IFD
+	buf = be.AppendUint16(buf, 1)  // number of entries
+	buf = be.AppendUint16(buf, stickerExifTag)
+	buf = be.AppendUint16(buf, 7) // type UNDEFINED
+	buf = be.AppendUint32(buf, uint32(len(metadata)))
+	buf = be.AppendUint32(buf, dataOffset)
+	buf = be.AppendUint32(buf, 0) // no next IFD
+	return append(buf, metadata...), nil
 }
 
 type StickerType int

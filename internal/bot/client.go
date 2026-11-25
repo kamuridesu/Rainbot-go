@@ -15,6 +15,9 @@ type WhatsAppClient interface {
 	BuildReaction(chat, sender types.JID, id types.MessageID, reaction string) *waE2E.Message
 	BuildEdit(chat types.JID, id types.MessageID, newContent *waE2E.Message) *waE2E.Message
 	Upload(ctx context.Context, plaintext []byte, appInfo whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
+	// UploadSticker uploads to the "sticker" MMS endpoint like official
+	// clients; audio stickers only play their sound when uploaded this way.
+	UploadSticker(ctx context.Context, plaintext []byte) (whatsmeow.UploadResponse, error)
 	Download(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error)
 	GetGroupInfo(ctx context.Context, jid types.JID) (*types.GroupInfo, error)
 	GetProfilePictureInfo(ctx context.Context, jid types.JID, params *whatsmeow.GetProfilePictureParams) (*types.ProfilePictureInfo, error)

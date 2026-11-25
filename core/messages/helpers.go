@@ -221,6 +221,18 @@ func (m *Message) botContext(timeout time.Duration) (context.Context, context.Ca
 	return context.WithTimeout(parent, timeout)
 }
 
+func (m *Message) uploadSticker(content []byte) (whatsmeow.UploadResponse, error) {
+	slog.Info("Uploading sticker")
+	ctx, cancel := m.botContext(uploadTimeout)
+	defer cancel()
+	resp, err := m.Bot.Client.UploadSticker(ctx, content)
+	if err != nil {
+		slog.Error("Error uploading sticker", "error", err)
+		return whatsmeow.UploadResponse{}, err
+	}
+	return resp, nil
+}
+
 func (m *Message) uploadMedia(content []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 	slog.Info(fmt.Sprintf("Uploading %s", mediaType))
 	ctx, cancel := m.botContext(uploadTimeout)

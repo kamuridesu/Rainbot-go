@@ -68,7 +68,7 @@ func init() {
 
 	commands.NewCommand(
 		"asticker",
-		"Cria um sticker com som a partir de um vídeo. Envie como descrição no vídeo ou mencione um vídeo",
+		"Cria um sticker com som a partir de um vídeo. Envie como descrição no vídeo ou mencione um vídeo. Opcional: duração em segundos (ex.: asticker 4)",
 		DiversaoCategory,
 		&[]string{"figa", "sa", "figsom"},
 		nil,

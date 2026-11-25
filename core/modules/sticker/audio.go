@@ -16,7 +16,10 @@ const AudioStickerMaxSeconds = 10
 
 var ErrNoAudio = errors.New("video has no audio track")
 
-func ExtractAudio(video []byte) ([]byte, time.Duration, error) {
+func ExtractAudio(video []byte, maxLength time.Duration) ([]byte, time.Duration, error) {
+	if maxLength <= 0 || maxLength > AudioStickerMaxSeconds*time.Second {
+		maxLength = AudioStickerMaxSeconds * time.Second
+	}
 	input, err := CreateTempFile(video)
 	if err != nil {
 		return nil, 0, err
@@ -34,12 +37,17 @@ func ExtractAudio(video []byte) ([]byte, time.Duration, error) {
 	output := input + "-audio.ogg"
 	defer DeleteTmpFile(output)
 
-	args := []string{"-i", input}
-	if filter := alignFilter(input); filter != "" {
-		args = append(args, "-af", filter)
+	// Timestamps are rebuilt from the sample count after resampling to 48kHz.
+	// Otherwise ffmpeg carries the source timestamps (often 44.1kHz AAC) into
+	// the Ogg granule positions, leaving them off the 960-sample Opus frame
+	// grid; WhatsApp clients refuse to play sticker audio with such granules.
+	filters := []string{"aresample=48000", "asetpts=N/SR/TB"}
+	if align := alignFilter(input); align != "" {
+		filters = append([]string{align}, filters...)
 	}
+	args := []string{"-i", input, "-af", strings.Join(filters, ",")}
 	args = append(args,
-		"-t", strconv.Itoa(AudioStickerMaxSeconds),
+		"-t", strconv.FormatFloat(maxLength.Seconds(), 'f', 3, 64),
 		"-vn",
 		"-map", "0:a:0",
 		"-c:a", "libopus",
