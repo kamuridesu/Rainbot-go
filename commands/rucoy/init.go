@@ -14,6 +14,7 @@ func init() {
 		&[]string{"ronline"},
 		&[]string{"${prefix}${alias} Nome-da-Guild", "${prefix}${alias} B L A C K O U T"},
 		RucoyOnlineGuild,
+		commands.IsGroup,
 		commands.HasArgs(1),
 	)
 
@@ -23,6 +24,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 400 450 42000", "${prefix}${alias} 400 450 42000 kina", "${prefix}${alias} 400 450 42000 pally 8", "${prefix}${alias} 400 450 42000 8 mage"},
 		Upskill,
+		commands.IsGroup,
 		commands.HasArgs(3),
 	)
 
@@ -41,6 +43,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 5 351 391 -50", "${prefix}${alias} 5 351 391 -50 90", "${prefix}${alias} 7 400 450 0"},
 		RucoyTrain,
+		commands.IsGroup,
 		commands.HasArgs(4),
 	)
 
@@ -50,6 +53,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} Nome-da-Guild", "${prefix}${alias} B L A C K O U T"},
 		RucoyAFKGuild,
+		commands.IsGroup,
 		commands.HasArgs(1),
 	)
 
@@ -59,6 +63,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} Nome-do-Jogador", "${prefix}${alias} Kamuri SG"},
 		RucoyInfo,
+		commands.IsGroup,
 		commands.HasArgs(1),
 	)
 
@@ -68,6 +73,7 @@ func init() {
 		nil,
 		&[]string{"${prefix}${alias} 400 Nome-da-Guild", "${prefix}${alias} 500 B L A C K O U T"},
 		RucoyMetaGuild,
+		commands.IsGroup,
 		commands.HasArgs(2),
 	)
 }
